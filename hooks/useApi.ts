@@ -5,6 +5,8 @@ import api from '@/services/api'
 import { AxiosError, AxiosRequestConfig } from 'axios'
 import { ApiError } from '@/types/auth'
 
+
+
 interface UseApiState<T> {
   data: T | null
   isLoading: boolean

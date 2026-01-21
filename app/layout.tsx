@@ -5,14 +5,15 @@ import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/contexts/AuthContext'
 import './globals.css'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { ProductProvider } from "@/contexts/ProductContext"
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Marketplace - Encontre os melhores produtos locais',
+  title: 'Feira Livre - Encontre os melhores produtos locais',
   description:
-    'Descubra lojas incriveis perto de voce e compre com facilidade. Conectamos voce aos melhores comerciantes da sua regiao.',
-  generator: 'v0.app',
+    'Descubra os melhores preços perto de voce e compre com facilidade. Conectamos voce aos melhores comerciantes da sua regiao.',
+  generator: 'Feira Livre',
   icons: {
     icon: [
       {
@@ -51,8 +52,13 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
 
-          <AuthProvider>{children}</AuthProvider>
           <Analytics />
+          <AuthProvider>
+            <ProductProvider>
+              {children}
+            </ProductProvider>
+          </AuthProvider>
+
         </GoogleOAuthProvider>
       </body>
     </html>
