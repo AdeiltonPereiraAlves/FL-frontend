@@ -8,6 +8,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import { ProductProvider } from "@/contexts/ProductContext"
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
+import 'leaflet/dist/leaflet.css'
 
 export const metadata: Metadata = {
   title: 'Feira Livre - Encontre os melhores produtos locais',
