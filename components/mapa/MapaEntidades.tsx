@@ -1,56 +1,5 @@
 
 
-// 'use client'
-
-// import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-// import { useMemo } from 'react'
-// import { useRouter } from 'next/navigation'
-// import { RecenterMap } from './RecenterMap'
-// import { markerIcon } from './leafletIcon'
-// import { createEntityIcon } from './createEntityIcon'
-// import { createEntityDivIcon } from './createEntityDivIcon'
-// interface Props {
-//     produtos: any[]
-// }
-
-// const SOUSA_PB: [number, number] = [-6.7590, -38.2316]
-
-// export default function MapaEntidades({ produtos }: Props) {
-//     const router = useRouter()
-
-//     const produtosComLocalizacao = produtos.filter(
-//         (p) => p.entidade?.localizacao?.latitude && p.entidade?.localizacao?.longitude
-//     )
-
-//     // 📍 centro do mapa
-//     const center = useMemo<[number, number]>(() => {
-//         if (produtosComLocalizacao.length > 0) {
-//             // 🔥 primeiro produto = mais barato (orderBy já garante)
-//             const loc = produtosComLocalizacao[0].entidade.localizacao
-//             return [loc.latitude, loc.longitude]
-//         }
-
-//         return SOUSA_PB
-//     }, [produtosComLocalizacao])
-
-//     return (
-//         <div className="h-[400px] w-full rounded-xl overflow-hidden border">
-//             <MapContainer center={SOUSA_PB} zoom={13} className="h-full w-full">
-//                 <TileLayer
-//                     attribution="© OpenStreetMap"
-//                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-//                 />
-
-//                 {/* 🚀 CONTROLA O MOVIMENTO DO MAPA */}
-//                 <RecenterMap center={center} />
-
-                
-//             </MapContainer>
-//         </div>
-//     )
-// }
-
-
 'use client'
 
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
@@ -61,38 +10,58 @@ import { createEntityDivIcon } from './createEntityDivIcon'
 
 interface Props {
   entidades: any[]
-  produtos?: any[] // opcional
-  entidadesDestaqueIds: string[]
+  produtos?: any[]
+  entidadesDestaqueIds:any
 }
 
 const SOUSA_PB: [number, number] = [-6.7590, -38.2316]
 
-export default function MapaEntidades({ entidades, produtos = [] }: Props) {
+export default function MapaEntidades({
+  entidades,
+  produtos = [],
+}: Props) {
   const router = useRouter()
 
   const temBusca = produtos.length > 0
 
-  // 📍 Centro do mapa
+  /**
+   * 🔥 Produtos válidos (com localização + preço)
+   * Já vêm ordenados do backend pelo menor preço
+   */
+  const produtosValidos = useMemo(() => {
+    return produtos.filter(
+      (p) =>
+        p.precoFinal !== null &&
+        p.entidade?.localizacao?.latitude &&
+        p.entidade?.localizacao?.longitude
+    )
+  }, [produtos])
+
+  /**
+   * 📍 Centro do mapa
+   * - Busca → produto mais barato
+   * - Sem busca → cidade padrão
+   */
   const center = useMemo<[number, number]>(() => {
-    if (temBusca) {
-      const loc = produtos[0].entidade.localizacao
+    if (temBusca && produtosValidos.length > 0) {
+      const loc = produtosValidos[0].entidade.localizacao
       return [Number(loc.latitude), Number(loc.longitude)]
     }
 
     return SOUSA_PB
-  }, [produtos, temBusca])
+  }, [temBusca, produtosValidos])
 
   return (
-    <div className="h-[400px] w-full rounded-xl overflow-hidden border">
-      <MapContainer center={SOUSA_PB} zoom={13} className="h-full w-full">
+    <div className="h-[500px] w-full rounded-xl overflow-hidden border">
+      <MapContainer center={SOUSA_PB} zoom={14} className="h-full w-full">
         <TileLayer
           attribution="© OpenStreetMap"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <RecenterMap center={center} />
+        <RecenterMap center={center}  />
 
-        {/* 🔹 SEM BUSCA → MOSTRA TODAS AS LOJAS */}
+        {/* 🔹 SEM BUSCA → MOSTRA TODAS AS ENTIDADES */}
         {!temBusca &&
           entidades.map((entidade) => {
             const loc = entidade.localizacao
@@ -126,9 +95,8 @@ export default function MapaEntidades({ entidades, produtos = [] }: Props) {
 
         {/* 🔹 COM BUSCA → MOSTRA PRODUTOS */}
         {temBusca &&
-          produtos.map((produto, index) => {
+          produtosValidos.map((produto, index) => {
             const loc = produto.entidade.localizacao
-            if (!loc) return null
 
             return (
               <Marker
@@ -136,8 +104,8 @@ export default function MapaEntidades({ entidades, produtos = [] }: Props) {
                 position={[Number(loc.latitude), Number(loc.longitude)]}
                 icon={createEntityDivIcon({
                   imageUrl: produto.entidade.fotoPerfilUrl,
-                  preco: produto.preco,
-                  isCheapest: index === 0,
+                  preco: produto.precoFinal, // ✅ preço correto
+                  isCheapest: index === 0,    // 🔥 destaque garantido
                 })}
                 eventHandlers={{
                   mouseover: (e) => e.target.openPopup(),
@@ -151,7 +119,7 @@ export default function MapaEntidades({ entidades, produtos = [] }: Props) {
                     <strong>{produto.entidade.nome}</strong>
                     <p>{produto.nome}</p>
                     <p className="font-bold text-green-600">
-                      R$ {produto.preco.toFixed(2)}
+                      R$ {produto.precoFinal.toFixed(2)}
                     </p>
                   </div>
                 </Popup>
@@ -162,3 +130,4 @@ export default function MapaEntidades({ entidades, produtos = [] }: Props) {
     </div>
   )
 }
+

@@ -52,8 +52,8 @@ export function createEntityDivIcon({
           : label
           ? `
         <div style="
-          background: #111;
-          color: white;
+          background: #11111100;
+          color: blue;
           padding: 2px 6px;
           border-radius: 6px;
           font-size: 12px;

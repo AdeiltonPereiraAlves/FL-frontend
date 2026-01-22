@@ -57,10 +57,10 @@ export default function HomePage() {
       <Header />
 
       {/* HERO */}
-      <section className="py-24">
-        <div className="mx-auto max-w-4xl px-4 text-center">
+      <section className="py-18 pb-2">
+        <div className="mx-auto max-w-4xl px-4 text-center pb-2">
           <h1 className="text-5xl font-bold">
-            Encontre os melhores <span className="text-primary">produtos locais</span>
+            Encontre os melhores <span className="text-[#E9571C]">produtos pelo melhor preço!!!</span>
           </h1>
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -93,8 +93,8 @@ export default function HomePage() {
       </section>
 
       {/* MAPA — SEMPRE VISÍVEL */}
-      <section className="py-10">
-        <div className="px-4 h-[500px]">
+      <section className="py-16">
+        <div className="px-16">
           <Map
             entidades={entidades}
             produtos={produtos}

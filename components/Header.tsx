@@ -13,6 +13,7 @@ import {
 import { motion } from 'framer-motion'
 import { Store, LayoutDashboard, LogOut, User, Menu } from 'lucide-react'
 import { useState } from 'react'
+import Image from 'next/image'
 
 export function Header() {
   const { isAuthenticated, user, logoutAndRedirect, isLoading } = useAuth()
@@ -23,13 +24,25 @@ export function Header() {
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="sticky top-0 z-50 w-full border-b border-border bg-[#002C53]"
+      className="sticky top-0 z-50 w-full border-b border-border bg-[#E9571C]"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <Store className="h-6 w-6 text-white" />
-          <span className="text-xl font-semibold">Feira Livre </span>
+          {/* <Store className="h-6 w-6 text-white"  /> */}
+
+
+          <Image
+            src="./logo/logofeiralivre.png" // caminho da imagem na pasta public
+            alt="logo feira livre"
+            width={50} // largura desejada
+            height={30} // altura desejada
+            className="rounded-full object-cover scale-110"
+
+          />
+
+
+          <span className="text-xl font-semibold text-white">Feira Livre </span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -46,7 +59,7 @@ export function Header() {
           >
             Produtos
           </Link>
-          
+
           {isAuthenticated && (
             <Link
               href="/dashboard"
@@ -128,7 +141,7 @@ export function Header() {
             >
               Produtos
             </Link>
-            
+
             {isAuthenticated ? (
               <>
                 <Link
