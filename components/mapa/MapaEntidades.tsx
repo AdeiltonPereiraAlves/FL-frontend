@@ -1,90 +1,53 @@
+
+
 // 'use client'
 
 // import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-// import 'leaflet/dist/leaflet.css'
-// import L from 'leaflet'
 // import { useMemo } from 'react'
 // import { useRouter } from 'next/navigation'
-
-// // 🔧 Correção do ícone padrão do Leaflet
-// delete (L.Icon.Default.prototype as any)._getIconUrl
-// L.Icon.Default.mergeOptions({
-//   iconRetinaUrl:
-//     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-//   iconUrl:
-//     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-//   shadowUrl:
-//     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-// })
-
-// interface MapaEntidadesProps {
-//   produtos: any[]
+// import { RecenterMap } from './RecenterMap'
+// import { markerIcon } from './leafletIcon'
+// import { createEntityIcon } from './createEntityIcon'
+// import { createEntityDivIcon } from './createEntityDivIcon'
+// interface Props {
+//     produtos: any[]
 // }
 
-// export default function MapaEntidades({ produtos }: MapaEntidadesProps) {
-//   const router = useRouter()
+// const SOUSA_PB: [number, number] = [-6.7590, -38.2316]
 
-//   // 🔐 Filtra SOMENTE produtos com localização válida
-//   const produtosComLocalizacao = useMemo(
-//     () =>
-//       produtos.filter(
-//         (p) =>
-//           p.entidade?.localizacao?.latitude !== undefined &&
-//           p.entidade?.localizacao?.longitude !== undefined
-//       ),
-//     [produtos]
-//   )
+// export default function MapaEntidades({ produtos }: Props) {
+//     const router = useRouter()
 
-//   // 📍 Centro do mapa (primeira entidade)
-//   const center = useMemo<[number, number]>(() => {
-//     if (produtosComLocalizacao.length > 0) {
-//       const loc = produtosComLocalizacao[0].entidade.localizacao
-//       return [loc.latitude, loc.longitude]
-//     }
+//     const produtosComLocalizacao = produtos.filter(
+//         (p) => p.entidade?.localizacao?.latitude && p.entidade?.localizacao?.longitude
+//     )
 
-//     // fallback: centro de Marizópolis
-//     return [-6.8275, -38.3483]
-//   }, [produtosComLocalizacao])
+//     // 📍 centro do mapa
+//     const center = useMemo<[number, number]>(() => {
+//         if (produtosComLocalizacao.length > 0) {
+//             // 🔥 primeiro produto = mais barato (orderBy já garante)
+//             const loc = produtosComLocalizacao[0].entidade.localizacao
+//             return [loc.latitude, loc.longitude]
+//         }
 
-//   return (
-//     <MapContainer
-//       center={center}
-//       zoom={14}
-//       style={{ height: '400px', width: '100%' }}
-//       className="rounded-xl z-0"
-//     >
-//       <TileLayer
-//         attribution="© OpenStreetMap"
-//         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-//       />
+//         return SOUSA_PB
+//     }, [produtosComLocalizacao])
 
-//       {produtosComLocalizacao.map((produto) => {
-//         const loc = produto.entidade.localizacao
+//     return (
+//         <div className="h-[400px] w-full rounded-xl overflow-hidden border">
+//             <MapContainer center={SOUSA_PB} zoom={13} className="h-full w-full">
+//                 <TileLayer
+//                     attribution="© OpenStreetMap"
+//                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+//                 />
 
-//         return (
-//           <Marker
-//             key={produto.id}
-//             position={[loc.latitude, loc.longitude]}
-//             eventHandlers={{
-//               click: () => router.push(`/entidade/${produto.entidade.id}`),
-//             }}
-//           >
-//             <Popup>
-//               <div className="space-y-1">
-//                 <strong className="block">
-//                   {produto.entidade.nome}
-//                 </strong>
-//                 <p>{produto.nome}</p>
-//                 <p className="font-bold text-green-600">
-//                   R$ {produto.preco.toFixed(2)}
-//                 </p>
-//               </div>
-//             </Popup>
-//           </Marker>
-//         )
-//       })}
-//     </MapContainer>
-//   )
+//                 {/* 🚀 CONTROLA O MOVIMENTO DO MAPA */}
+//                 <RecenterMap center={center} />
+
+                
+//             </MapContainer>
+//         </div>
+//     )
 // }
 
 
@@ -94,75 +57,108 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { RecenterMap } from './RecenterMap'
-import { markerIcon } from './leafletIcon'
-import { createEntityIcon } from './createEntityIcon'
 import { createEntityDivIcon } from './createEntityDivIcon'
+
 interface Props {
-    produtos: any[]
+  entidades: any[]
+  produtos?: any[] // opcional
+  entidadesDestaqueIds: string[]
 }
 
 const SOUSA_PB: [number, number] = [-6.7590, -38.2316]
 
-export default function MapaEntidades({ produtos }: Props) {
-    const router = useRouter()
+export default function MapaEntidades({ entidades, produtos = [] }: Props) {
+  const router = useRouter()
 
-    const produtosComLocalizacao = produtos.filter(
-        (p) => p.entidade?.localizacao?.latitude && p.entidade?.localizacao?.longitude
-    )
+  const temBusca = produtos.length > 0
 
-    // 📍 centro do mapa
-    const center = useMemo<[number, number]>(() => {
-        if (produtosComLocalizacao.length > 0) {
-            // 🔥 primeiro produto = mais barato (orderBy já garante)
-            const loc = produtosComLocalizacao[0].entidade.localizacao
-            return [loc.latitude, loc.longitude]
-        }
+  // 📍 Centro do mapa
+  const center = useMemo<[number, number]>(() => {
+    if (temBusca) {
+      const loc = produtos[0].entidade.localizacao
+      return [Number(loc.latitude), Number(loc.longitude)]
+    }
 
-        return SOUSA_PB
-    }, [produtosComLocalizacao])
+    return SOUSA_PB
+  }, [produtos, temBusca])
 
-    return (
-        <div className="h-[400px] w-full rounded-xl overflow-hidden border">
-            <MapContainer center={SOUSA_PB} zoom={13} className="h-full w-full">
-                <TileLayer
-                    attribution="© OpenStreetMap"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
+  return (
+    <div className="h-[400px] w-full rounded-xl overflow-hidden border">
+      <MapContainer center={SOUSA_PB} zoom={13} className="h-full w-full">
+        <TileLayer
+          attribution="© OpenStreetMap"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
 
-                {/* 🚀 CONTROLA O MOVIMENTO DO MAPA */}
-                <RecenterMap center={center} />
+        <RecenterMap center={center} />
 
-                {produtosComLocalizacao.map((produto) => {
-                    const loc = produto.entidade.localizacao
+        {/* 🔹 SEM BUSCA → MOSTRA TODAS AS LOJAS */}
+        {!temBusca &&
+          entidades.map((entidade) => {
+            const loc = entidade.localizacao
+            if (!loc) return null
 
-                    return (
-                        <Marker
-                            key={produto.id}
-                            position={[loc.latitude, loc.longitude]}
-                            icon={createEntityDivIcon(
-                                produto.entidade.fotoPerfilUrl,
-                                produto.preco,
-                                produto.index === 0 // mais barato
-                            )}
-                            eventHandlers={{
-                                mouseover: (e) => e.target.openPopup(),
-                                mouseout: (e) => e.target.closePopup(),
-                                click: () => router.push(`/entidade/${produto.entidade.id}`),
-                            }}
-                        >
-                            <Popup closeButton={false} autoClose={false}>
-                                <div className="space-y-1">
-                                    <strong>{produto.entidade.nome}</strong>
-                                    <p>{produto.nome}</p>
-                                    <p className="font-bold text-green-600">
-                                        R$ {produto.preco.toFixed(2)}
-                                    </p>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    )
+            return (
+              <Marker
+                key={entidade.id}
+                position={[Number(loc.latitude), Number(loc.longitude)]}
+                icon={createEntityDivIcon({
+                  imageUrl: entidade.fotoPerfilUrl,
+                  label: entidade.nome,
                 })}
-            </MapContainer>
-        </div>
-    )
+                eventHandlers={{
+                  mouseover: (e) => e.target.openPopup(),
+                  mouseout: (e) => e.target.closePopup(),
+                  click: () => router.push(`/entidade/${entidade.id}`),
+                }}
+              >
+                <Popup closeButton={false} autoClose={false}>
+                  <div className="space-y-1 text-center">
+                    <strong>{entidade.nome}</strong>
+                    <p className="text-sm text-muted-foreground">
+                      {entidade.descricao}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+        {/* 🔹 COM BUSCA → MOSTRA PRODUTOS */}
+        {temBusca &&
+          produtos.map((produto, index) => {
+            const loc = produto.entidade.localizacao
+            if (!loc) return null
+
+            return (
+              <Marker
+                key={produto.id}
+                position={[Number(loc.latitude), Number(loc.longitude)]}
+                icon={createEntityDivIcon({
+                  imageUrl: produto.entidade.fotoPerfilUrl,
+                  preco: produto.preco,
+                  isCheapest: index === 0,
+                })}
+                eventHandlers={{
+                  mouseover: (e) => e.target.openPopup(),
+                  mouseout: (e) => e.target.closePopup(),
+                  click: () =>
+                    router.push(`/entidade/${produto.entidade.id}`),
+                }}
+              >
+                <Popup closeButton={false} autoClose={false}>
+                  <div className="space-y-1 text-center">
+                    <strong>{produto.entidade.nome}</strong>
+                    <p>{produto.nome}</p>
+                    <p className="font-bold text-green-600">
+                      R$ {produto.preco.toFixed(2)}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+      </MapContainer>
+    </div>
+  )
 }

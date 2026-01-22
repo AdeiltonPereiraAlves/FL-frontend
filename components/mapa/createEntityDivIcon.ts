@@ -1,11 +1,18 @@
-// components/mapa/createEntityDivIcon.ts
 import L from 'leaflet'
 
-export function createEntityDivIcon(
-  imageUrl: string | null,
-  preco: number,
-  isCheapest: boolean
-) {
+interface EntityIconOptions {
+  imageUrl?: string | null
+  preco?: number
+  label?: string
+  isCheapest?: boolean
+}
+
+export function createEntityDivIcon({
+  imageUrl,
+  preco,
+  label,
+  isCheapest = false,
+}: EntityIconOptions) {
   return L.divIcon({
     className: '',
     html: `
@@ -26,19 +33,40 @@ export function createEntityDivIcon(
           style="width: 100%; height: 100%; object-fit: cover;"
         />
       </div>
-      <div style="
-        background: ${isCheapest ? '#22c55e' : '#111'};
-        color: white;
-        padding: 2px 6px;
-        border-radius: 6px;
-        font-size: 12px;
-        text-align: center;
-        margin-top: 4px;
-      ">
-        R$ ${preco.toFixed(2)}
-      </div>
+
+      ${
+        preco !== undefined
+          ? `
+        <div style="
+          background: ${isCheapest ? '#22c55e' : '#111'};
+          color: white;
+          padding: 2px 6px;
+          border-radius: 6px;
+          font-size: 12px;
+          text-align: center;
+          margin-top: 4px;
+        ">
+          R$ ${preco.toFixed(2)}
+        </div>
+      `
+          : label
+          ? `
+        <div style="
+          background: #111;
+          color: white;
+          padding: 2px 6px;
+          border-radius: 6px;
+          font-size: 12px;
+          text-align: center;
+          margin-top: 4px;
+        ">
+          ${label}
+        </div>
+      `
+          : ''
+      }
     `,
-    iconSize: [56, 70],
-    iconAnchor: [28, 70],
+    iconSize: [56, preco !== undefined || label ? 78 : 56],
+    iconAnchor: [28, preco !== undefined || label ? 78 : 56],
   })
 }
