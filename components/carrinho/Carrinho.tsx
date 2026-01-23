@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
-
+import Link from 'next/link'
 interface Props {
   onClose: () => void
 }
@@ -25,7 +25,7 @@ export default function Carrinho({ onClose }: Props) {
         </p>
       )}
 
-      {carrinho.map((item) => (
+      {carrinho.map((item: any) => (
         <div
           key={item.id}
           className="flex justify-between items-center mb-3"
@@ -35,6 +35,20 @@ export default function Carrinho({ onClose }: Props) {
             <p className="text-xs text-muted-foreground">
               {item.entidade.nome}
             </p>
+            {
+              item ? (
+
+                <Link href={ item!.entidade!.contato!.redes[0]!.url! } >
+                  <p className='text-green'>
+                    whatsapp
+                    </p>
+                </Link>
+              ):(
+                <p>whatsapp</p>
+              )
+            }
+
+
           </div>
 
           <div className="flex items-center gap-2">

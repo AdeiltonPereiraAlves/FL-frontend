@@ -31,6 +31,7 @@ export default function HomePage() {
     cidadesApi.execute()
 
     entidadesApi.execute().then((data) => {
+     
       if (data) setEntidades(data)
     })
   }, [])
@@ -40,8 +41,11 @@ export default function HomePage() {
     if (!cidadeId || !busca) return
 
     const data = await produtosApi.execute({
+
       params: { cidadeId, query: busca },
+      
     })
+     console.log(data, "produtos data")
 
     if (!data) return
 

@@ -95,7 +95,12 @@ interface CartItem {
   entidade: {
     id: string
     nome: string
-    whatsapp?: string
+    contato?: {
+      redes?: {
+        url: string
+      }[]
+    }
+
   }
 }
 

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { X } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
+import Link from 'next/link'
 
 interface Props {
   produto: any
@@ -42,8 +43,15 @@ export default function ProdutoDetalhes({ produto, onClose }: Props) {
       )}
 
       <p className="font-bold text-green-600 mt-2">
-        R$ {produto.precoFinal.toFixed(2)}
+        {produto.precoFinal.toFixed(2)}
       </p>
+
+      <Link href={produto.entidade.contato.redes[0].url}>
+        <p className="font-bold text-green-600 mt-2">
+
+          contato:  {produto.entidade.contato.redes[0].url}
+        </p>
+      </Link>
 
       <button
         onClick={() =>
@@ -52,6 +60,7 @@ export default function ProdutoDetalhes({ produto, onClose }: Props) {
             nome: produto.nome,
             precoFinal: produto.precoFinal,
             entidade: produto.entidade,
+            
           })
         }
         className="mt-3 w-full bg-green-600 text-white py-2 rounded"
