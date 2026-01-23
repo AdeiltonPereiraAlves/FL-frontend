@@ -9,7 +9,7 @@ import { ProductProvider } from "@/contexts/ProductContext"
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 import 'leaflet/dist/leaflet.css'
-
+import { CartProvider } from "@/contexts/CartContext"
 export const metadata: Metadata = {
   title: 'Feira Livre - Encontre os melhores produtos locais',
   description:
@@ -56,7 +56,9 @@ export default function RootLayout({
           <Analytics />
           <AuthProvider>
             <ProductProvider>
-              {children}
+              <CartProvider>
+                {children}
+              </CartProvider>
             </ProductProvider>
           </AuthProvider>
 

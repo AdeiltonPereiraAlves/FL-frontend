@@ -31,18 +31,19 @@ export default function ProdutosPage() {
                         className="border rounded-lg p-4 shadow-sm hover:shadow-md transition"
                     >
                         <img
-                            src={produto.fotos?.find(f => f.destaque)?.url || '/placeholder.png'}
+                            // src={produto.fotos?.find(f => f.destaque)?.url || '/placeholder.png'}
+                            src={produto.fotos?.[0] && produto.fotos[0].url || '/placeholder.png'}
                             alt={produto.nome}
                             className="w-full h-40 object-cover rounded mb-3"
                         />
 
                         <h2 className="font-semibold text-lg">{produto.nome}</h2>
-                        <p className="text-sm text-gray-500">
+                        {/* <p className="text-sm text-gray-500">
                             Estoque: {produto.estoque}
-                        </p>
+                        </p> */}
 
                         <p className="text-xl font-bold text-green-600 mt-2">
-                            R$ {produto.preco.toFixed(2)}
+                            R$ {produto.precoFinal}
                         </p>
                     </div>
                 ))}
