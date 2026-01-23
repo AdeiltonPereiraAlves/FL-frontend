@@ -84,7 +84,7 @@ export default function HomePage() {
               className="h-12"
             />
 
-            <Button onClick={buscar} size="lg" className="h-12">
+            <Button onClick={buscar}  size="lg" className="h-12">
               <Search className="mr-2 h-5 w-5" />
               Buscar
             </Button>

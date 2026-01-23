@@ -5,6 +5,9 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    
+    domains: ['https://console.neon.tech', 'cdn.meusite.com'],
+  
   },
 }
 
