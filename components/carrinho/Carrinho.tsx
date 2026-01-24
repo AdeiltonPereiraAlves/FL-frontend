@@ -2,7 +2,6 @@
 
 import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 
@@ -14,13 +13,6 @@ interface Props {
 export default function Carrinho({ onClose, onAbrirProduto }: Props) {
   const { carrinho, alterarQuantidade, remover, total } = useCart()
   const router = useRouter()
-
-  const whatsappUrl = (item: any) => {
-    const whatsapp = item.entidade?.contato?.redes?.find(
-      (r: any) => r.tipo === 'WHATSAPP'
-    )
-    return whatsapp?.url
-  }
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -55,9 +47,9 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
-            {carrinho.map((item: any) => (
-              <div
-                key={item.id}
+      {carrinho.map((item: any) => (
+        <div
+          key={item.id}
                 className="border rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex justify-between items-start mb-2">
@@ -65,7 +57,7 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
                     <p className="font-semibold text-gray-900">{item.nome}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {item.entidade?.nome}
-                    </p>
+            </p>
                   </div>
                   <button
                     onClick={() => remover(item.id)}
@@ -74,26 +66,26 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
-                </div>
+          </div>
 
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center gap-2 border rounded-lg">
-                    <button
-                      onClick={() => alterarQuantidade(item.id, -1)}
+            <button
+              onClick={() => alterarQuantidade(item.id, -1)}
                       className="p-1 hover:bg-gray-200 rounded transition-colors"
                       disabled={item.quantidade <= 1}
-                    >
+            >
                       <Minus className="h-4 w-4" />
-                    </button>
+            </button>
                     <span className="px-3 font-semibold min-w-[2rem] text-center">
                       {item.quantidade}
                     </span>
-                    <button
-                      onClick={() => alterarQuantidade(item.id, 1)}
+            <button
+              onClick={() => alterarQuantidade(item.id, 1)}
                       className="p-1 hover:bg-gray-200 rounded transition-colors"
-                    >
+            >
                       <Plus className="h-4 w-4" />
-                    </button>
+            </button>
                   </div>
 
                   <div className="text-right">
@@ -104,26 +96,9 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
                       R$ {item.precoFinal.toFixed(2)} cada
                     </p>
                   </div>
-                </div>
-
-                {whatsappUrl(item) && (
-                  <Link
-                    href={whatsappUrl(item)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block mt-2"
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-xs border-green-500 text-green-600 hover:bg-green-50"
-                    >
-                      Falar com a loja
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            ))}
+          </div>
+        </div>
+      ))}
           </div>
         )}
       </div>

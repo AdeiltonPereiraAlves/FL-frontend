@@ -3,7 +3,7 @@
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Search, PackageX } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useEffect, useState } from 'react'
 import { useApi } from '@/hooks/useApi'
@@ -13,7 +13,7 @@ const Map = dynamic(() => import('@/components/mapa/MapaEntidades'), {
   ssr: false,
 })
 
-const SEARCH_STORAGE_KEY = 'feiralivre:busca'
+const SEARCH_STORAGE_KEY = 'feiralivre:ultimaBusca'
 
 interface SavedSearchState {
   busca: string
@@ -31,12 +31,12 @@ export default function HomePage() {
   const [isSearching, setIsSearching] = useState(false)
   const [erroCidade, setErroCidade] = useState('')
   const [cidadeInicializada, setCidadeInicializada] = useState(false)
-  const [buscaRestaurada, setBuscaRestaurada] = useState(false)
 
   const [entidades, setEntidades] = useState<any[]>([])
   const [entidadesDestaqueIds, setEntidadesDestaqueIds] = useState<string[]>([])
   const [produtos, setProdutos] = useState<any[]>([])
   const [paginacao, setPaginacao] = useState<any>(null)
+  const [buscaRealizada, setBuscaRealizada] = useState(false)
 
   const cidadesApi = useApi<any[]>('/cidades')
   const entidadesApi = useApi<any[]>('/entidades/mapa')
@@ -53,24 +53,27 @@ export default function HomePage() {
     return sousa?.id || ''
   }
 
-  // Carregar busca salva do localStorage ao montar
+  // Carregar última busca salva ao montar o componente
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SEARCH_STORAGE_KEY)
       if (saved) {
         const savedState: SavedSearchState = JSON.parse(saved)
-        // Restaurar apenas se tiver menos de 1 hora (opcional, pode remover se quiser manter sempre)
-        const umaHora = 60 * 60 * 1000
-        if (Date.now() - savedState.timestamp < umaHora) {
+        // Restaurar apenas se tiver menos de 24 horas
+        const umDia = 24 * 60 * 60 * 1000
+        if (Date.now() - savedState.timestamp < umDia) {
           setBusca(savedState.busca)
           setCidadeId(savedState.cidadeId)
           setProdutos(savedState.produtos || [])
           setEntidadesDestaqueIds(savedState.entidadesDestaqueIds || [])
-          setBuscaRestaurada(true)
+          setBuscaRealizada(true)
+        } else {
+          // Limpar busca antiga
+          localStorage.removeItem(SEARCH_STORAGE_KEY)
         }
       }
     } catch (err) {
-      console.error('Erro ao carregar busca salva:', err)
+      console.error('Erro ao carregar última busca:', err)
     }
   }, [])
 
@@ -78,14 +81,17 @@ export default function HomePage() {
     cidadesApi.execute()
   }, [])
 
-  // Definir cidade padrão quando cidades carregarem (apenas uma vez)
+  // Definir cidade padrão quando cidades carregarem (apenas se não houver cidade restaurada)
   useEffect(() => {
     if (cidadesApi.data && cidadesApi.data.length > 0 && !cidadeInicializada) {
-      const cidadePadrao = definirCidadePadrao(cidadesApi.data)
-      if (cidadePadrao && !cidadeId) {
-        setCidadeId(cidadePadrao)
-        setCidadeInicializada(true)
+      // Só define cidade padrão se não houver cidadeId (não foi restaurada)
+      if (!cidadeId) {
+        const cidadePadrao = definirCidadePadrao(cidadesApi.data)
+        if (cidadePadrao) {
+          setCidadeId(cidadePadrao)
+        }
       }
+      setCidadeInicializada(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cidadesApi.data, cidadeInicializada])
@@ -107,41 +113,21 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cidadeId])
 
-  // Verificar se a cidade restaurada ainda é válida quando cidades carregarem
+  // Verificar se a cidade restaurada ainda existe quando cidades carregarem
   useEffect(() => {
-    if (buscaRestaurada && cidadeId && cidadesApi.data && cidadesApi.data.length > 0) {
+    if (cidadeId && cidadesApi.data && cidadesApi.data.length > 0 && produtos.length > 0) {
       const cidadeExiste = cidadesApi.data.some((c: any) => c.id === cidadeId)
       if (!cidadeExiste) {
         // Cidade não existe mais, limpar busca
         setBusca('')
         setProdutos([])
         setEntidadesDestaqueIds([])
+        setBuscaRealizada(false)
         localStorage.removeItem(SEARCH_STORAGE_KEY)
-        setBuscaRestaurada(false)
-      } else {
-        // Cidade existe, marcar como não restaurada para evitar loops
-        setBuscaRestaurada(false)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cidadesApi.data])
-
-  // Função auxiliar para salvar busca no localStorage
-  function salvarBusca(produtosList: any[], ids: string[]) {
-    try {
-      const stateToSave: SavedSearchState = {
-        busca,
-        cidadeId,
-        produtos: produtosList,
-        entidadesDestaqueIds: ids,
-        timestamp: Date.now(),
-      }
-      localStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(stateToSave))
-    } catch (err) {
-      console.error('Erro ao salvar busca:', err)
-    }
-  }
-
 
   async function buscar() {
     // Validar cidade
@@ -157,27 +143,47 @@ export default function HomePage() {
 
     setErroCidade('')
     setIsSearching(true)
+    setBuscaRealizada(false)
     try {
       const data = await produtosApi.execute({
         params: { cidadeId, query: busca },
       })
 
-      if (!data) return
+      if (!data) {
+        setBuscaRealizada(true)
+        setProdutos([])
+        setEntidadesDestaqueIds([])
+        setIsSearching(false)
+        return
+      }
 
       // Ajustar para nova estrutura de resposta com paginação
       const produtosList = Array.isArray(data) ? data : (data.produtos || [])
       setProdutos(produtosList)
       setPaginacao(data.paginacao || null)
+      setBuscaRealizada(true)
 
       // Lojas que têm o produto
       const ids = produtosList.map((p: any) => p.entidade.id)
       setEntidadesDestaqueIds(ids)
 
-      // Salvar busca no localStorage
-      salvarBusca(produtosList, ids)
+      // Salvar busca no localStorage para restaurar depois
+      try {
+        const stateToSave: SavedSearchState = {
+          busca,
+          cidadeId,
+          produtos: produtosList,
+          entidadesDestaqueIds: ids,
+          timestamp: Date.now(),
+        }
+        localStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(stateToSave))
+      } catch (err) {
+        console.error('Erro ao salvar busca:', err)
+      }
     } catch (error) {
       console.error('Erro ao buscar produtos:', error)
       setErroCidade('Erro ao buscar produtos. Tente novamente.')
+      setBuscaRealizada(false)
     } finally {
       setIsSearching(false)
     }
@@ -209,6 +215,7 @@ export default function HomePage() {
                     setEntidadesDestaqueIds([])
                     setBusca('')
                     setErroCidade('')
+                    setBuscaRealizada(false)
                     // Limpar busca salva se mudar de cidade
                     localStorage.removeItem(SEARCH_STORAGE_KEY)
                   } else {
@@ -260,6 +267,21 @@ export default function HomePage() {
               <div className="mt-2">
                 <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-md text-xs sm:text-sm mx-auto max-w-full">
                   {erroCidade}
+                </div>
+              </div>
+            )}
+
+            {/* Mensagem quando não encontrar produtos */}
+            {buscaRealizada && !isSearching && produtos.length === 0 && !erroCidade && (
+              <div className="mt-2">
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 sm:px-4 py-3 sm:py-4 rounded-md text-xs sm:text-sm mx-auto max-w-full flex items-center gap-2 sm:gap-3">
+                  <PackageX className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold">Produto não encontrado</p>
+                    <p className="text-yellow-700 mt-1">
+                      Não encontramos "{busca}" nesta cidade. Tente buscar por outro termo.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
