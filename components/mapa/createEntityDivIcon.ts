@@ -1,119 +1,104 @@
+
+import L from 'leaflet'
+
+interface CreateEntityDivIconProps {
+  imageUrl: string
+  label?: string
+  preco?: number
+  highlight?: boolean
+  entidadeId?: string
+}
+
+export function createEntityDivIcon({
+  imageUrl,
+  label,
+  preco,
+  highlight,
+  entidadeId,
+}: CreateEntityDivIconProps) {
+  return L.divIcon({
+    className: 'entity-marker',
+    html: `
+      <div class="relative group flex flex-col items-center">
+        
+        <!-- LOGO -->
+        <div class="
+          w-12 h-12 rounded-full overflow-hidden border-2
+          ${highlight ? 'border-green-500' : 'border-white'}
+          shadow-lg bg-white
+        ">
+          <img src="${imageUrl}" class="w-full h-full object-cover" />
+        </div>
+
+        <!-- PREÇO -->
+        ${
+          preco
+            ? `<div class="mt-1 bg-white text-xs font-semibold px-2 py-0.5 rounded shadow">
+                R$ ${preco.toFixed(2)}
+              </div>`
+            : ''
+        }
+
+        <!-- BOTÃO HOVER -->
+        <a
+          href="/loja/${entidadeId}"
+          class="
+            absolute top-full mt-1
+            opacity-0 group-hover:opacity-100
+            transition-opacity
+            bg-[#E9571C] text-[#FFFFFF] text-xs
+            px-3 py-1 rounded shadow-lg
+            whitespace-nowrap
+           
+            z-50
+          "
+        >
+          Ver loja
+        </a>
+      </div>
+    `,
+    iconSize: [50, 70],
+    iconAnchor: [25, 50],
+  })
+}
+
 // import L from 'leaflet'
 
-// interface EntityIconOptions {
-//   imageUrl?: string | null
+// interface CreateEntityDivIconProps {
+//   imageUrl: string
 //   preco?: number
-//   label?: string
-//   isCheapest?: boolean
+//   label?: any
+//   highlight?: boolean
+//   entidadeId: string
 // }
 
 // export function createEntityDivIcon({
 //   imageUrl,
 //   preco,
-//   label,
-//   isCheapest = false,
-// }: EntityIconOptions) {
+//   highlight,
+//   entidadeId,
+// }: CreateEntityDivIconProps) {
 //   return L.divIcon({
-//     className: '',
+//     className: 'entity-marker',
 //     html: `
-//       <div style="
-//         width: 56px;
-//         height: 56px;
-//         border-radius: 50%;
-//         border: 3px solid ${isCheapest ? '#22c55e' : '#e5e7eb'};
-//         background: white;
-//         display: flex;
-//         align-items: center;
-//         justify-content: center;
-//         overflow: hidden;
-//         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-//       ">
-//         <img
-//           src="${imageUrl || '/default-store.png'}"
-//           style="width: 100%; height: 100%; object-fit: cover;"
-//         />
-//       </div>
+//       <div class="marker-wrapper">
+//         <div class="marker-logo ${highlight ? 'marker-highlight' : ''}">
+//           <img src="${imageUrl}" />
+//         </div>
+//         <div>
+         
+//         ${
+//           preco
+//             ? `<div class="marker-price">R$ ${preco.toFixed(2)}</div>`
+//             : ''
+//         }
 
-//       ${
-//         preco !== undefined
-//           ? `
-//         <div style="
-//           background: ${isCheapest ? '#22c55e' : '#111'};
-//           color: white;
-//           padding: 2px 6px;
-//           border-radius: 6px;
-//           font-size: 12px;
-//           text-align: center;
-//           margin-top: 4px;
-//         ">
-//           R$ ${preco.toFixed(2)}
-//         </div>
-//       `
-//           : label
-//           ? `
-//         <div style="
-//           background: #11111100;
-//           color: blue;
-//           padding: 2px 6px;
-//           border-radius: 6px;
-//           font-size: 12px;
-//           text-align: center;
-//           margin-top: 4px;
-//         ">
-//           ${label}
-//         </div>
-//       `
-//           : ''
-//       }
+//         <a class="marker-link" href="/loja/${entidadeId}">
+//           Ver loja
+//         </a>
+//       </div>
 //     `,
-//     iconSize: [56, preco !== undefined || label ? 78 : 56],
-//     iconAnchor: [28, preco !== undefined || label ? 78 : 56],
+//     iconSize: [56, 72],
+//     iconAnchor: [28, 56],
 //   })
 // }
-
-
-import L from 'leaflet'
-
-interface Props {
-  imageUrl?: string | null
-  label?: string
-  preco?: number
-  highlight?: boolean
-}
-
-export function createEntityDivIcon({ imageUrl, label, preco, highlight }: Props) {
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        border: 3px solid ${highlight ? '#22c55e' : '#e5e7eb'};
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      ">
-        <img src="${imageUrl || '/default-store.png'}" style="width:100%;height:100%;object-fit:cover;" />
-      </div>
-      ${
-        preco
-          ? `<div style="
-            background: ${highlight ? '#22c55e' : '#111'};
-            color: white;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-size: 12px;
-            text-align: center;
-            margin-top: 4px;
-          ">R$ ${preco.toFixed(2)}</div>`
-          : ''
-      }
-    `,
-    iconSize: [56, preco ? 70 : 56],
-    iconAnchor: [28, preco ? 70 : 56],
-  })
-}

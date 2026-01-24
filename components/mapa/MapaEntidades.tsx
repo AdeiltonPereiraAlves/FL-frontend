@@ -268,6 +268,8 @@ export default function MapaEntidades({
                 icon={createEntityDivIcon({
                   imageUrl: ent.fotoPerfilUrl,
                   label: ent.nome,
+                  entidadeId: ent.id,
+                  
                 })}
               />
             )
@@ -284,7 +286,8 @@ export default function MapaEntidades({
                 icon={createEntityDivIcon({
                   imageUrl: produto.entidade.fotoPerfilUrl,
                   preco: produto.precoFinal!,
-                  highlight: filtroMenorPreco, // destaque apenas se menor preço
+                  highlight: filtroMenorPreco,
+                  entidadeId: produto.entidade.id // destaque apenas se menor preço
                 })}
               >
                 <Popup closeButton={false}>
