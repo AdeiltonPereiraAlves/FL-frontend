@@ -4,39 +4,48 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.24 264);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.6 0.22 300);
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.95 0.01 264);
-  --muted-foreground: oklch(0.45 0.02 264);
-  --accent: oklch(0.65 0.2 300);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.88 0.02 264);
-  --input: oklch(0.92 0.01 264);
-  --ring: oklch(0.55 0.24 264);
-  --chart-1: oklch(0.55 0.24 264);
-  --chart-2: oklch(0.6 0.22 300);
-  --chart-3: oklch(0.55 0.22 25);
-  --chart-4: oklch(0.45 0.2 264);
-  --chart-5: oklch(0.7 0.18 300);
+  /* Paleta FeiraLivre: #FE6233 (laranja), branco, cinza, preto, vermelho */
+  --feiralivre-primary: #FE6233;
+  --feiralivre-primary-dark: #E9571C;
+  --feiralivre-white: #FFFFFF;
+  --feiralivre-gray: #6B7280;
+  --feiralivre-gray-light: #F3F4F6;
+  --feiralivre-black: #000000;
+  --feiralivre-red: #EF4444;
+  
+  --background: var(--feiralivre-white);
+  --foreground: var(--feiralivre-black);
+  --card: var(--feiralivre-white);
+  --card-foreground: var(--feiralivre-black);
+  --popover: var(--feiralivre-white);
+  --popover-foreground: var(--feiralivre-black);
+  --primary: var(--feiralivre-primary);
+  --primary-foreground: var(--feiralivre-white);
+  --secondary: var(--feiralivre-gray-light);
+  --secondary-foreground: var(--feiralivre-black);
+  --muted: var(--feiralivre-gray-light);
+  --muted-foreground: var(--feiralivre-gray);
+  --accent: var(--feiralivre-primary-dark);
+  --accent-foreground: var(--feiralivre-white);
+  --destructive: var(--feiralivre-red);
+  --destructive-foreground: var(--feiralivre-white);
+  --border: #E5E7EB;
+  --input: var(--feiralivre-white);
+  --ring: var(--feiralivre-primary);
+  --chart-1: var(--feiralivre-primary);
+  --chart-2: var(--feiralivre-primary-dark);
+  --chart-3: var(--feiralivre-red);
+  --chart-4: var(--feiralivre-gray);
+  --chart-5: var(--feiralivre-gray-light);
   --radius: 0.625rem;
-  --sidebar: oklch(0.98 0.01 264);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.55 0.24 264);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.02 300);
-  --sidebar-accent-foreground: oklch(0.2 0 0);
-  --sidebar-border: oklch(0.88 0.02 264);
-  --sidebar-ring: oklch(0.55 0.24 264);
+  --sidebar: var(--feiralivre-white);
+  --sidebar-foreground: var(--feiralivre-black);
+  --sidebar-primary: var(--feiralivre-primary);
+  --sidebar-primary-foreground: var(--feiralivre-white);
+  --sidebar-accent: var(--feiralivre-gray-light);
+  --sidebar-accent-foreground: var(--feiralivre-black);
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: var(--feiralivre-primary);
 }
 
 .dark {

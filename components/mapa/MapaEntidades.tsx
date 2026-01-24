@@ -175,6 +175,39 @@ export default function MapaEntidades({
   const [carrinhoAberto, setCarrinhoAberto] = useState(false)
   const [filtroMenorPreco, setFiltroMenorPreco] = useState(false)
   const { adicionar } = useCart()
+
+  // Função para abrir carrinho (mantém produto selecionado em memória)
+  const abrirCarrinho = () => {
+    // Não limpa produtoSelecionado, apenas mostra carrinho por cima
+    setCarrinhoAberto(true)
+  }
+
+  // Função para fechar carrinho (restaura produto se existir)
+  const fecharCarrinho = () => {
+    setCarrinhoAberto(false)
+    // produtoSelecionado permanece, então o produto será exibido novamente
+  }
+
+  // Função toggle do carrinho (abre/fecha sem afetar produto)
+  const toggleCarrinho = () => {
+    if (carrinhoAberto) {
+      fecharCarrinho()
+    } else {
+      abrirCarrinho()
+    }
+  }
+
+  // Função para abrir produto (não fecha carrinho, apenas mostra produto)
+  const abrirProduto = (produto: any) => {
+    // Não fecha carrinho - permite que ambos existam, mas produto aparece por cima
+    setProdutoSelecionado(produto)
+  }
+
+  // Função para fechar produto (não afeta carrinho)
+  const fecharProduto = () => {
+    setProdutoSelecionado(null)
+    // carrinhoAberto permanece como está
+  }
   const temBusca = produtos.length > 0
 
   // Filtra produtos com preço válido e localização
@@ -189,15 +222,21 @@ export default function MapaEntidades({
     [produtos]
   )
 
-  // Filtra apenas menor preço se botão clicado
-  const produtosExibidos = useMemo(() => {
-    if (!filtroMenorPreco) return produtosValidos
-    const menorPreco = produtosValidos.reduce(
+  // Calcula o menor preço para destacar quando filtro estiver ativo
+  const menorPreco = useMemo(() => {
+    if (produtosValidos.length === 0) return null
+    return produtosValidos.reduce(
       (min, p) => (p.precoFinal! < min ? p.precoFinal! : min),
       Number.MAX_SAFE_INTEGER
     )
+  }, [produtosValidos])
+
+  // Filtra apenas menor preço se botão clicado, senão mostra todos
+  const produtosExibidos = useMemo(() => {
+    if (!filtroMenorPreco) return produtosValidos
+    // Se filtro ativo, mostra apenas os com menor preço
     return produtosValidos.filter((p) => p.precoFinal === menorPreco)
-  }, [produtosValidos, filtroMenorPreco])
+  }, [produtosValidos, filtroMenorPreco, menorPreco])
 
   // Centro do mapa
   const center = useMemo<[number, number]>(() => {
@@ -266,62 +305,84 @@ export default function MapaEntidades({
                 key={ent.id}
                 position={[loc.latitude, loc.longitude]}
                 icon={createEntityDivIcon({
-                  imageUrl: ent.fotoPerfilUrl,
-                  label: ent.nome,
+                  imageUrl: ent.fotoPerfilUrl || 'https://via.placeholder.com/50',
+                  nomeEntidade: ent.nome,
                   entidadeId: ent.id,
-                  
                 })}
               />
             )
           })}
 
-        {/* 2️⃣ Mostrar produtos encontrados */}
+        {/* 2️⃣ Mostrar produtos encontrados - TODAS as entidades com o produto */}
         {temBusca &&
           produtosExibidos.map((produto) => {
             const loc = produto.entidade.localizacao
+            // Destacar apenas se filtro estiver ativo E for o menor preço
+            const deveDestacar = filtroMenorPreco && produto.precoFinal === menorPreco
+            
             return (
               <Marker
                 key={produto.id}
                 position={[loc.latitude, loc.longitude]}
                 icon={createEntityDivIcon({
                   imageUrl: produto.entidade.fotoPerfilUrl,
+                  nomeEntidade: produto.entidade.nome,
                   preco: produto.precoFinal!,
-                  highlight: filtroMenorPreco,
-                  entidadeId: produto.entidade.id // destaque apenas se menor preço
+                  highlight: deveDestacar, // Só destaca quando filtro ativo E for menor preço
+                  entidadeId: produto.entidade.id
                 })}
               >
                 <Popup closeButton={false}>
-                 
-                <PopupProdutoMapa produto={produto} onVerProduto={() => setProdutoSelecionado(produto)}   />
+                  <PopupProdutoMapa 
+                    produto={produto} 
+                    onVerProduto={() => abrirProduto(produto)}
+                    isDestaque={deveDestacar}
+                  />
                 </Popup>
               </Marker>
             )
           })}
       </MapContainer>
 
-      {/* Painel de produto / carrinho */}
-      {(produtoSelecionado || carrinhoAberto) && (
+      {/* Painel de produto */}
+      {produtoSelecionado && (
         <div
           className="
             fixed z-[998] bg-white shadow-xl
             bottom-0 left-0 w-full h-[60%]
             md:top-0 md:right-0 md:left-auto md:w-[360px] md:h-full
             flex flex-col
+            animate-in slide-in-from-bottom md:slide-in-from-right
           "
         >
-          {produtoSelecionado && (
-            <ProdutoDetalhes
-              produto={produtoSelecionado}
-              onClose={() => setProdutoSelecionado(null)}
-            />
-          )}
-
-          {carrinhoAberto && <Carrinho onClose={() => setCarrinhoAberto(false)} />}
+          <ProdutoDetalhes
+            produto={produtoSelecionado}
+            onClose={fecharProduto}
+            onAbrirCarrinho={abrirCarrinho}
+          />
         </div>
       )}
 
-      {/* Botão flutuante de abrir carrinho */}
-      <CartButton onClick={() => setCarrinhoAberto(true)} />
+      {/* Painel de carrinho */}
+      {carrinhoAberto && (
+        <div
+          className="
+            fixed z-[999] bg-white shadow-xl
+            bottom-0 left-0 w-full h-[60%]
+            md:top-0 md:right-0 md:left-auto md:w-[360px] md:h-full
+            flex flex-col
+            animate-in slide-in-from-bottom md:slide-in-from-right
+          "
+        >
+          <Carrinho 
+            onClose={fecharCarrinho}
+            onAbrirProduto={abrirProduto}
+          />
+        </div>
+      )}
+
+      {/* Botão flutuante de abrir/fechar carrinho (toggle) */}
+      <CartButton onClick={toggleCarrinho} isOpen={carrinhoAberto} />
     </div>
   )
 }
