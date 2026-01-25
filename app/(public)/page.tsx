@@ -271,8 +271,9 @@ export default function HomePage() {
       <Header />
 
       {/* Carrossel de Banners */}
-      <section className="py-2 sm:py-3">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="py-2 sm:py-2 md:py-2">
+        {/* Mobile: full width, Desktop: com container */}
+        <div className="w-full sm:mx-auto sm:max-w-7xl sm:px-4 sm:px-6 lg:px-8">
           <BannerCarousel />
         </div>
       </section>
@@ -320,7 +321,7 @@ export default function HomePage() {
 
       {/* MAPA — SEMPRE VISÍVEL */}
       {!cidadesApi.isLoading && (
-        <section className="py-4 sm:py-8 md:py-12">
+        <section className="py-2 sm:py-2 md:py-3 lg:py-4">
           <div className="px-2 sm:px-4 md:px-8 lg:px-16">
             {entidadesApi.isLoading && !busca.trim() && produtos.length === 0 ? (
               <div className="relative w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">

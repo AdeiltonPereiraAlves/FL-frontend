@@ -10,8 +10,9 @@ import { useBanners, Banner } from '@/hooks/useBanners'
 export function BannerCarousel() {
   const router = useRouter()
   const { banners, isLoading, listarBannersAtivos } = useBanners()
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [bannersLocal, setBannersLocal] = useState<Banner[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
     async function carregarBanners() {
@@ -78,20 +79,32 @@ export function BannerCarousel() {
     carregarBanners()
   }, [listarBannersAtivos])
 
-  // Troca automática a cada 3 segundos
+  // Inicializar no meio (segunda cópia) para permitir scroll infinito
+  useEffect(() => {
+    const bannersParaUsar = bannersLocal.length > 0 ? bannersLocal : banners
+    if (bannersParaUsar.length > 1 && !isInitialized) {
+      setCurrentIndex(bannersParaUsar.length)
+      setIsInitialized(true)
+    }
+  }, [bannersLocal.length, banners.length, isInitialized])
+
+  // Troca automática a cada 3 segundos - com loop infinito
   useEffect(() => {
     // Usa bannersLocal se disponível, senão usa banners
     const bannersParaUsar = bannersLocal.length > 0 ? bannersLocal : banners
     
     // Só cria intervalo se houver mais de 1 banner
     if (bannersParaUsar.length <= 1) {
-      setCurrentIndex(0)
       return
     }
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => {
-        const nextIndex = (prev + 1) % bannersParaUsar.length
+        const nextIndex = prev + 1
+        // Se chegou ao final da terceira cópia, volta para o início da segunda
+        if (nextIndex >= bannersParaUsar.length * 3) {
+          return bannersParaUsar.length
+        }
         return nextIndex
       })
     }, 3000) // 3 segundos
@@ -116,20 +129,35 @@ export function BannerCarousel() {
   const bannersParaUsar = bannersLocal.length > 0 ? bannersLocal : banners
 
   const goToSlide = (index: number) => {
-    setCurrentIndex(index)
+    // Ajustar para a segunda cópia (meio) para manter o loop infinito
+    setCurrentIndex(index + bannersParaUsar.length)
   }
 
   const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + bannersParaUsar.length) % bannersParaUsar.length)
+    setCurrentIndex((prev) => {
+      const newIndex = prev - 1
+      // Se voltou antes do início da segunda cópia, volta para o final da segunda cópia
+      if (newIndex < bannersParaUsar.length) {
+        return bannersParaUsar.length * 2 - 1
+      }
+      return newIndex
+    })
   }
 
   const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % bannersParaUsar.length)
+    setCurrentIndex((prev) => {
+      const newIndex = prev + 1
+      // Se passou do final da terceira cópia, volta para o início da segunda
+      if (newIndex >= bannersParaUsar.length * 3) {
+        return bannersParaUsar.length
+      }
+      return newIndex
+    })
   }
 
   if (isLoading) {
     return (
-      <div className="w-full h-48 sm:h-56 md:h-64 bg-gray-200 animate-pulse rounded-lg"></div>
+      <div className="w-full h-48 sm:h-56 md:h-80 lg:h-96 bg-gray-200 animate-pulse sm:rounded-lg"></div>
     )
   }
 
@@ -138,16 +166,17 @@ export function BannerCarousel() {
   }
 
   return (
-    <div className="relative w-full h-48 sm:h-56 md:h-64 overflow-hidden rounded-lg shadow-lg group">
-      {/* Container dos banners */}
+    <div className="relative w-full h-48 sm:h-56 md:h-80 lg:h-96 overflow-hidden sm:rounded-lg shadow-lg group">
+      {/* Container dos banners - infinito */}
       <div
         className="flex transition-transform duration-500 ease-in-out h-full"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
-        {bannersParaUsar.map((banner) => (
+        {/* Duplicar banners para criar efeito infinito */}
+        {[...bannersParaUsar, ...bannersParaUsar, ...bannersParaUsar].map((banner, index) => (
           <div
-            key={banner.id}
-            className="min-w-full h-full relative cursor-pointer"
+            key={`${banner.id}-${index}`}
+            className="min-w-full h-full relative cursor-pointer flex-shrink-0"
             onClick={() => handleBannerClick(banner)}
           >
             <Image
@@ -155,7 +184,7 @@ export function BannerCarousel() {
               alt={banner.titulo || 'Banner'}
               fill
               className="object-cover"
-              priority={banner.id === bannersParaUsar[0].id}
+              priority={index < bannersParaUsar.length && banner.id === bannersParaUsar[0].id}
             />
             {banner.titulo && (
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end">
@@ -201,21 +230,25 @@ export function BannerCarousel() {
       {/* Indicadores de slide */}
       {bannersParaUsar.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {bannersParaUsar.map((_, index) => (
-            <button
-              key={index}
-              className={`h-2 rounded-full transition-all ${
-                index === currentIndex
-                  ? 'w-8 bg-white'
-                  : 'w-2 bg-white/50 hover:bg-white/75'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation()
-                goToSlide(index)
-              }}
-              aria-label={`Ir para slide ${index + 1}`}
-            />
-          ))}
+          {bannersParaUsar.map((_, index) => {
+            // Calcular o índice real considerando as cópias
+            const realIndex = currentIndex % bannersParaUsar.length
+            return (
+              <button
+                key={index}
+                className={`h-2 rounded-full transition-all ${
+                  index === realIndex
+                    ? 'w-8 bg-white'
+                    : 'w-2 bg-white/50 hover:bg-white/75'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  goToSlide(index)
+                }}
+                aria-label={`Ir para slide ${index + 1}`}
+              />
+            )
+          })}
         </div>
       )}
     </div>
