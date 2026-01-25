@@ -1,7 +1,7 @@
 'use client'
 
 import { useCart } from '@/contexts/CartContext'
-import { Calendar, Tag } from 'lucide-react'
+import { Calendar, Tag, Truck, Package } from 'lucide-react'
 
 export function PopupProdutoMapa({
   produto,
@@ -72,6 +72,37 @@ export function PopupProdutoMapa({
           </span>
         )}
       </div>
+
+      {/* Informações de entrega */}
+      {produto.fazEntrega !== undefined && (
+        <div className="space-y-1">
+          {produto.temFreteGratis ? (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">
+              <Truck className="h-3.5 w-3.5" />
+              <span>🟢 Frete grátis</span>
+            </div>
+          ) : produto.valorMinimoEntrega ? (
+            <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-yellow-50 px-2 py-1 rounded">
+              <Truck className="h-3.5 w-3.5" />
+              <span>🟡 Frete grátis acima de R$ {Number(produto.valorMinimoEntrega).toFixed(2)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+              <Package className="h-3.5 w-3.5" />
+              <span>🔴 Somente retirada</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Indicador de destaque pago (se aplicável) */}
+      {produto.entidade?.configuracoes && produto.entidade.configuracoes.some(
+        (c: any) => c.chave === 'plano' && (c.valor?.tipo === 'PREMIUM' || c.valor?.tipo === 'PREMIUM_MAX')
+      ) && (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-[#16A34A] bg-green-50 px-2 py-1 rounded">
+          <span>⭐ Loja em destaque</span>
+        </div>
+      )}
 
       {/* Validade do produto */}
       {produto.validade && (

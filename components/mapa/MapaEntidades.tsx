@@ -159,6 +159,7 @@ import { Button } from '@/components/ui/button'
 import { PopupProdutoMapa } from './PopupProdutoMapa'
 import { useCart } from '@/contexts/CartContext'
 import { sanitizeId } from '@/utils/security'
+import { entidadeTemLogo, entidadeTemDestaque, obterZIndexPlano } from '@/utils/entidadePlano'
 
 interface Props {
   entidades: any[]
@@ -415,6 +416,11 @@ export default function MapaEntidades({
           entidades.map((ent) => {
             const loc = ent.localizacao
             if (!loc) return null
+            
+            const temLogo = entidadeTemLogo(ent)
+            const temDestaque = entidadeTemDestaque(ent)
+            const zIndex = obterZIndexPlano(ent)
+            
             return (
               <Marker
                 key={ent.id}
@@ -424,6 +430,9 @@ export default function MapaEntidades({
                   nomeEntidade: ent.nome,
                   entidadeId: ent.id,
                   tipoEntidade: ent.tipo,
+                  temLogo,
+                  temDestaque,
+                  zIndex,
                 })}
               />
             )
@@ -441,6 +450,12 @@ export default function MapaEntidades({
             // Destacar apenas se filtro estiver ativo E for o menor preço
             const deveDestacar = filtroMenorPreco && produto.precoFinal === menorPreco
             
+            // Informações de plano da entidade
+            const entidade = produto.entidade
+            const temLogo = entidade ? entidadeTemLogo(entidade) : false
+            const temDestaque = entidade ? entidadeTemDestaque(entidade) : false
+            const zIndex = entidade ? obterZIndexPlano(entidade) : 100
+            
             return (
               <Marker
                 key={produto.id}
@@ -452,6 +467,9 @@ export default function MapaEntidades({
                   highlight: deveDestacar, // Só destaca quando filtro ativo E for menor preço
                   entidadeId: produto.entidade?.id,
                   tipoEntidade: produto.entidade?.tipo,
+                  temLogo,
+                  temDestaque,
+                  zIndex,
                 })}
                 eventHandlers={{
                   click: (e) => {

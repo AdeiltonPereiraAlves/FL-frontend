@@ -8,6 +8,10 @@ interface CreateEntityDivIconProps {
   highlight?: boolean
   entidadeId?: string
   tipoEntidade?: string
+  // Informações de plano
+  temLogo?: boolean // Se a entidade tem logo (nível > 0)
+  temDestaque?: boolean // Se a entidade tem destaque (PREMIUM ou PREMIUM_MAX)
+  zIndex?: number // Z-index baseado no plano
 }
 
 /**
@@ -72,6 +76,9 @@ export function createEntityDivIcon({
   highlight,
   entidadeId,
   tipoEntidade,
+  temLogo = false,
+  temDestaque = false,
+  zIndex = 100,
 }: CreateEntityDivIconProps) {
   // Validação e sanitização
   const safeImageUrl = escapeHtml(imageUrl || 'https://via.placeholder.com/50')
@@ -100,13 +107,19 @@ export function createEntityDivIcon({
          ${safeEntidadeId ? `data-entity-id="${safeEntidadeId}"` : ''}
          ${tipoEntidade ? `data-entity-type="${escapeHtml(tipoEntidade)}"` : ''}>
       
-      <!-- LOGO -->
-      <div style="width: 48px; height: 48px; border-radius: 9999px; overflow: hidden; border: 2px solid ${highlight ? '#22c55e' : 'white'}; ${highlight ? 'border-width: 4px; box-shadow: 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.5);' : ''} box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); background: white; transition: all 0.3s;">
-        <img src="${safeImageUrl}" 
-             alt="${safeNomeEntidade || 'Entidade'}" 
-             style="width: 100%; height: 100%; object-fit: cover;"
-             loading="lazy" />
-      </div>
+      <!-- LOGO (só aparece se temLogo = true) -->
+      ${temLogo
+        ? `<div style="width: ${temDestaque ? '56px' : '48px'}; height: ${temDestaque ? '56px' : '48px'}; border-radius: 9999px; overflow: hidden; border: 2px solid ${highlight ? '#22c55e' : temDestaque ? '#16A34A' : 'white'}; ${highlight ? 'border-width: 4px; box-shadow: 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.5);' : temDestaque ? 'border-width: 3px; box-shadow: 0 0 0 2px #16A34A, 0 4px 12px rgba(22, 163, 74, 0.4);' : ''} box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); background: white; transition: all 0.3s; position: relative;">
+          <img src="${safeImageUrl}" 
+               alt="${safeNomeEntidade || 'Entidade'}" 
+               style="width: 100%; height: 100%; object-fit: cover;"
+               loading="lazy" />
+          ${temDestaque ? '<div style="position: absolute; top: -2px; right: -2px; background: #16A34A; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">⭐</div>' : ''}
+        </div>`
+        : `<div style="width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; border: 2px solid #9CA3AF; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); background: #F3F4F6; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
+          <div style="width: 24px; height: 24px; background: #9CA3AF; border-radius: 50%;"></div>
+        </div>`
+      }
 
       <!-- NOME DA ENTIDADE (clicável para mostrar botão) -->
       ${safeNomeEntidade 
@@ -150,11 +163,21 @@ export function createEntityDivIcon({
     </div>
   `
 
+  const iconSize = temDestaque 
+    ? [temLogo ? 56 : 48, safeNomeEntidade ? 100 : 80] as [number, number]
+    : [temLogo ? 48 : 40, safeNomeEntidade ? 90 : 70] as [number, number]
+  
+  const iconAnchor = temDestaque
+    ? [temLogo ? 28 : 24, safeNomeEntidade ? 80 : 60] as [number, number]
+    : [temLogo ? 24 : 20, safeNomeEntidade ? 70 : 50] as [number, number]
+
   return L.divIcon({
     className: 'entity-marker',
     html,
-    iconSize: [50, safeNomeEntidade ? 90 : 70] as [number, number],
-    iconAnchor: [25, safeNomeEntidade ? 70 : 50] as [number, number],
+    iconSize,
+    iconAnchor,
+    // Z-index baseado no plano (maior = aparece por cima)
+    zIndexOffset: zIndex,
   })
 }
 
