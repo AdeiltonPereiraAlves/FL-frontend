@@ -59,9 +59,47 @@ export function ApiProvider({ children }: ApiProviderProps) {
         }
       }
 
-      // Erro de rede
+      // Erro de rede (backend não está respondendo)
       if (axiosError.request) {
-        throw new Error('Erro de conexão. Verifique sua internet e tente novamente.')
+        const baseURL = api.defaults.baseURL || 'http://localhost:3001'
+        const url = axiosError.config?.url || 'URL desconhecida'
+        const fullUrl = `${baseURL}${url}`
+        const method = axiosError.config?.method?.toUpperCase() || 'GET'
+        
+        // Log mais limpo e informativo
+        console.error('Erro de conexão:', {
+          message: axiosError.message || 'Erro desconhecido',
+          code: axiosError.code || 'NO_CODE',
+          method,
+          url: fullUrl,
+          baseURL,
+          status: axiosError.response?.status || 'N/A',
+        })
+        
+        // Mensagem mais informativa baseada no código de erro
+        if (axiosError.code === 'ECONNREFUSED') {
+          throw new Error(
+            `Não foi possível conectar ao servidor em ${baseURL}. Verifique se o backend está rodando.`
+          )
+        }
+        
+        if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'NETWORK_ERROR') {
+          throw new Error(
+            `Erro de rede ao acessar ${url}. Verifique sua conexão com a internet.`
+          )
+        }
+        
+        if (axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ECONNABORTED') {
+          throw new Error(
+            'Tempo de conexão esgotado. O servidor pode estar sobrecarregado ou lento.'
+          )
+        }
+        
+        // Mensagem genérica mas informativa
+        const errorMessage = axiosError.message || 'Erro de conexão desconhecido'
+        throw new Error(
+          `Erro ao acessar ${method} ${url}: ${errorMessage}. Verifique se o servidor está rodando em ${baseURL}`
+        )
       }
 
       throw new Error(axiosError.message || 'Erro desconhecido')

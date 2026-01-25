@@ -12,9 +12,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/useAuth'
 import { Store, Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
 
+// Função helper para determinar o redirecionamento baseado no papel do usuário
+function getRedirectPath(user: any): string {
+  if (!user?.papeis || !Array.isArray(user.papeis)) {
+    return '/dashboard'
+  }
+
+  const papeis = user.papeis.map((p: any) => p.tipo)
+  const isDono = papeis.includes('DONO_SISTEMA')
+  const isAdminUser = papeis.includes('ADMIN')
+
+  if (isDono || isAdminUser) {
+    return '/admin/dashboard'
+  }
+
+  return '/dashboard'
+}
+
 export default function LoginPage() {
   const router = useRouter()
-  const { loginAndRedirect, loginWithGoogle, isLoading } = useAuth()
+  const { login, loginWithGoogle, isLoading } = useAuth()
 
   const [email, setEmail] = useState('')
   const [senha, setPassword] = useState('')
@@ -30,7 +47,25 @@ export default function LoginPage() {
     }
 
     try {
-      await loginAndRedirect({ email, senha }, '/dashboard')
+      // Fazer login
+      await login({ email, senha })
+      
+      // Aguardar um pouco para o estado ser atualizado no localStorage
+      await new Promise(resolve => setTimeout(resolve, 150))
+      
+      // Verificar papel e redirecionar corretamente
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr)
+          const redirectPath = getRedirectPath(userData)
+          router.push(redirectPath)
+        } catch {
+          router.push('/dashboard')
+        }
+      } else {
+        router.push('/dashboard')
+      }
     } catch {
       setError('Credenciais inválidas. Tente novamente.')
     }
@@ -125,17 +160,34 @@ export default function LoginPage() {
             {/* LOGIN GOOGLE REAL */}
             <div className="flex justify-center">
               <GoogleLogin
-                onSuccess={(credentialResponse) => {
+                onSuccess={async (credentialResponse) => {
                   if (!credentialResponse.credential) {
                     setError('Erro ao autenticar com Google')
                     return
                   }
 
-                  loginWithGoogle(credentialResponse.credential)
-                    .then(() => router.push('/dashboard'))
-                    .catch(() =>
-                      setError('Falha no login com Google')
-                    )
+                  try {
+                    await loginWithGoogle(credentialResponse.credential)
+                    
+                    // Aguardar um pouco para o estado do usuário ser atualizado no localStorage
+                    await new Promise(resolve => setTimeout(resolve, 150))
+                    
+                    // Verificar papel do usuário para redirecionar corretamente
+                    const userStr = localStorage.getItem('user')
+                    if (userStr) {
+                      try {
+                        const userData = JSON.parse(userStr)
+                        const redirectPath = getRedirectPath(userData)
+                        router.push(redirectPath)
+                      } catch {
+                        router.push('/dashboard')
+                      }
+                    } else {
+                      router.push('/dashboard')
+                    }
+                  } catch {
+                    setError('Falha no login com Google')
+                  }
                 }}
                 onError={() => {
                   setError('Erro no login com Google')

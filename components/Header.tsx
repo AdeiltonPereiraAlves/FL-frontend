@@ -38,7 +38,7 @@ export function Header() {
 
   const getDashboardLabel = () => {
     if (isDonoSistema() || isAdmin()) {
-      return 'Painel Admin'
+      return 'Dashboard'
     }
     if (isLojista()) {
       return 'Minha Loja'

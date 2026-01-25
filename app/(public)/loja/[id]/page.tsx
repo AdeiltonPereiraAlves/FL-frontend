@@ -5,34 +5,58 @@ import { Header } from '@/components/Header'
 import { useEntidades } from '@/hooks/useEntidades'
 import { useApiContext } from '@/contexts/ApiContext'
 import { Button } from '@/components/ui/button'
-import { Store, MapPin, Phone, Mail, MessageSquare, Package, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Store, MapPin, Phone, Mail, MessageSquare, Package, ChevronLeft, ChevronRight, ArrowLeft, Edit, X, Save, Eye } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
 import CartButton from '@/components/carrinho/Cartbutton'
 import Carrinho from '@/components/carrinho/Carrinho'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { LoadingSpinner, LoadingGrid, LoadingSkeleton } from '@/components/ui/LoadingSpinner'
+import { useAuth } from '@/hooks/useAuth'
+import { useRole } from '@/hooks/useRole'
+import { EditarEntidadeForm } from '@/components/admin/EditarEntidadeForm'
+import { DialogProdutoCompleto } from '@/components/admin/DialogProdutoCompleto'
+import { EditarProdutoInline } from '@/components/admin/EditarProdutoInline'
 
 export default function LojaPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { buscarEntidadePorId } = useEntidades()
   const api = useApiContext()
   const { adicionar } = useCart()
+  const { isAuthenticated } = useAuth()
+  const { isDonoSistema, isAdmin } = useRole()
+  
+  // Verificar se está em modo admin (vindo da página de planos)
+  const isAdminMode = searchParams.get('admin') === 'true' && (isDonoSistema() || isAdmin())
+  
+  // Verificar se o usuário tem permissão de admin/dono do sistema
+  const podeEditar = isDonoSistema() || isAdmin()
   
   const [entidade, setEntidade] = useState<any>(null)
   const [produtos, setProdutos] = useState<any[]>([])
   const [paginacao, setPaginacao] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [carrinhoAberto, setCarrinhoAberto] = useState(false)
   const [paginaAnterior, setPaginaAnterior] = useState<string | null>(null)
+  
+  // Estados para modo de edição
+  const [editandoEntidade, setEditandoEntidade] = useState(false)
+  const [salvandoEntidade, setSalvandoEntidade] = useState(false)
+  const [produtoEditando, setProdutoEditando] = useState<string | null>(null)
+  const [salvandoProduto, setSalvandoProduto] = useState(false)
+  const [produtoEditandoInline, setProdutoEditandoInline] = useState<string | null>(null)
+  
   const limit = 20
 
   useEffect(() => {
     async function carregar() {
       setLoading(true)
+      setError(null)
       try {
         // Carregar entidade
         const entidadeData = await buscarEntidadePorId(resolvedParams.id)
@@ -42,6 +66,8 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
         await carregarProdutos(1)
       } catch (error) {
         console.error('Erro ao carregar dados:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados da loja'
+        setError(errorMessage)
       } finally {
         setLoading(false)
       }
@@ -59,6 +85,39 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
       }
     }
   }, [])
+
+  // Função para salvar entidade
+  const handleSalvarEntidade = async (dados: any) => {
+    setSalvandoEntidade(true)
+    try {
+      await api.put(`/entidade/${resolvedParams.id}`, dados)
+      // Recarregar entidade
+      const entidadeData = await buscarEntidadePorId(resolvedParams.id)
+      setEntidade(entidadeData)
+      setEditandoEntidade(false)
+    } catch (error) {
+      console.error('Erro ao salvar entidade:', error)
+      alert('Erro ao salvar entidade. Tente novamente.')
+    } finally {
+      setSalvandoEntidade(false)
+    }
+  }
+
+  // Função para salvar produto
+  const handleSalvarProduto = async (produtoId: string, dados: any) => {
+    setSalvandoProduto(true)
+    try {
+      await api.put(`/produto/${produtoId}`, dados)
+      // Recarregar produtos
+      await carregarProdutos(page)
+      setProdutoEditando(null)
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error)
+      alert('Erro ao salvar produto. Tente novamente.')
+    } finally {
+      setSalvandoProduto(false)
+    }
+  }
 
   const carregarProdutos = async (pagina: number) => {
     try {
@@ -133,7 +192,35 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     )
   }
 
-  if (!entidade) {
+  // Mostrar erro de conexão
+  if (error && !loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center max-w-md px-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-4">
+              <h1 className="text-2xl font-bold text-red-900 mb-2">Erro de Conexão</h1>
+              <p className="text-red-700 mb-4">{error}</p>
+              <p className="text-sm text-red-600 mb-4">
+                Verifique se o servidor backend está rodando e tente novamente.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => window.location.reload()} variant="default">
+                Tentar Novamente
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/">Voltar para Home</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!entidade && !loading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -154,19 +241,43 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     <div className="min-h-screen bg-background">
       <Header />
 
-      {/* Botão Voltar - Se veio de uma página de produto */}
-      {paginaAnterior && (
+      {/* Botão Voltar - Se veio de uma página de produto ou admin */}
+      {(paginaAnterior || isAdminMode) && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => {
-              router.push(paginaAnterior)
-            }}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para o Produto
-          </Button>
+          <div className="flex items-center gap-2">
+            {paginaAnterior && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => {
+                  router.push(paginaAnterior)
+                }}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar para o Produto
+              </Button>
+            )}
+            {isAdminMode && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  const returnUrl = sessionStorage.getItem('adminReturnUrl') || '/admin/planos'
+                  router.push(returnUrl)
+                }}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar para Planos
+              </Button>
+            )}
+            {isAdminMode && (
+              <div className="ml-auto">
+                <div className="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
+                  🔧 Modo Administrador
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -217,7 +328,26 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
               </div>
 
               {/* Botões de Ação */}
-              <div className="flex gap-3 mt-4">
+              <div className="flex gap-3 mt-4 flex-wrap">
+                {isAdminMode && (
+                  <Button
+                    variant="secondary"
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                    onClick={() => setEditandoEntidade(!editandoEntidade)}
+                  >
+                    {editandoEntidade ? (
+                      <span className="flex items-center">
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar Edição
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editar Entidade
+                      </span>
+                    )}
+                  </Button>
+                )}
                 {whatsappUrl && (
                   <Button
                     asChild
@@ -274,6 +404,18 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
         </div>
       )}
 
+      {/* Formulário de Edição de Entidade */}
+      {isAdminMode && editandoEntidade && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <EditarEntidadeForm
+            entidade={entidade}
+            onSave={handleSalvarEntidade}
+            onCancel={() => setEditandoEntidade(false)}
+            isLoading={salvandoEntidade}
+          />
+        </div>
+      )}
+
       {/* Lista de Produtos */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
@@ -293,100 +435,214 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
           </div>
         ) : (
           <>
-            {/* Grid de Produtos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {produtos.map((produto) => {
-                const precoNormal = produto.precoNormal || produto.precoFinal
-                const precoPromo = produto.precoPromo
-                const emPromocao = produto.emPromocao && precoPromo
-                const precoFinal = emPromocao ? precoPromo : precoNormal
+            {/* Renderização condicional: Grade para visitantes/clientes/lojistas, Lista para admin/dono */}
+            {podeEditar && isAdminMode ? (
+              /* Lista de Produtos para Admin/Dono do Sistema */
+              <div className="space-y-4">
+                {produtos.map((produto) => {
+                  const precoNormal = produto.precoNormal || produto.precoFinal
+                  const precoPromo = produto.precoPromo
+                  const emPromocao = produto.emPromocao && precoPromo
+                  const precoFinal = emPromocao ? precoPromo : precoNormal
+                  const isEditando = produtoEditandoInline === produto.id
 
-                return (
-                  <div
-                    key={produto.id}
-                    className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
-                  >
-                    {/* Imagem do Produto */}
-                    {produto.fotos?.[0] && (
-                      <Link 
-                        href={`/produto/${produto.id}`}
-                        onClick={() => {
-                          // Salvar página atual antes de ir para o produto
-                          if (typeof window !== 'undefined') {
-                            sessionStorage.setItem('produtoReturnUrl', window.location.pathname)
-                          }
-                        }}
-                        className="block relative w-full h-48 bg-gray-100 cursor-pointer group"
-                      >
-                        <Image
-                          src={produto.fotos[0].url}
-                          alt={produto.nome}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  return (
+                    <div key={produto.id} className="space-y-4">
+                      {/* Formulário de Edição Inline */}
+                      {isEditando && (
+                        <EditarProdutoInline
+                          produtoId={produto.id}
+                          onSave={async () => {
+                            await carregarProdutos(page)
+                          }}
+                          onCancel={() => setProdutoEditandoInline(null)}
                         />
-                        {emPromocao && (
-                          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                            PROMOÇÃO
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                          <span className="opacity-0 group-hover:opacity-100 text-white font-semibold bg-[#16A34A] px-4 py-2 rounded">
-                            Ver Detalhes
-                          </span>
-                        </div>
-                      </Link>
-                    )}
+                      )}
 
-                    {/* Informações do Produto */}
-                    <div className="p-4">
-                      <Link 
-                        href={`/produto/${produto.id}`}
-                        onClick={() => {
-                          // Salvar página atual antes de ir para o produto
-                          if (typeof window !== 'undefined') {
-                            sessionStorage.setItem('produtoReturnUrl', window.location.pathname)
-                          }
-                        }}
-                        className="block"
-                      >
-                        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 hover:text-[#16A34A] transition-colors">
-                          {produto.nome}
-                        </h3>
-                      </Link>
-
-                      {/* Preços */}
-                      <div className="mb-3">
-                        {emPromocao ? (
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400 line-through">
-                                R$ {precoNormal?.toFixed(2)}
-                              </span>
+                      {/* Item da Lista */}
+                      <div className={`bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow ${isEditando ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <div className="flex items-center gap-4">
+                          {/* Imagem Pequena */}
+                          {produto.fotos?.[0] && (
+                            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200">
+                              <Image
+                                src={produto.fotos[0].url}
+                                alt={produto.nome}
+                                fill
+                                className="object-cover"
+                              />
+                              {emPromocao && (
+                                <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1 rounded-bl">
+                                  PROMO
+                                </div>
+                              )}
                             </div>
-                            <p className="text-xl font-bold text-[#16A34A]">
-                              R$ {precoPromo?.toFixed(2)}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-xl font-bold text-[#16A34A]">
-                            R$ {precoFinal?.toFixed(2) || 'N/A'}
-                          </p>
-                        )}
-                      </div>
+                          )}
 
-                      {/* Botão Adicionar */}
-                      <Button
-                        onClick={() => handleAdicionarAoCarrinho(produto)}
-                        className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white"
-                        size="sm"
-                      >
-                        Adicionar ao Carrinho
-                      </Button>
+                          {/* Informações do Produto */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
+                              {produto.nome}
+                            </h3>
+                            <div className="flex items-center gap-2 mb-2">
+                              {emPromocao ? (
+                                <>
+                                  <span className="text-sm text-gray-400 line-through">
+                                    R$ {precoNormal?.toFixed(2)}
+                                  </span>
+                                  <span className="text-lg font-bold text-[#16A34A]">
+                                    R$ {precoPromo?.toFixed(2)}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-lg font-bold text-[#16A34A]">
+                                  R$ {precoFinal?.toFixed(2) || 'N/A'}
+                                </span>
+                              )}
+                            </div>
+                            {produto.descricao && (
+                              <p className="text-sm text-gray-600 line-clamp-1">
+                                {produto.descricao}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Botões de Ação */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Link href={`/produto/${produto.id}`}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Ver Produto
+                              </Link>
+                            </Button>
+                            <Button
+                              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                              size="sm"
+                              onClick={() => {
+                                if (produtoEditandoInline === produto.id) {
+                                  setProdutoEditandoInline(null)
+                                } else {
+                                  setProdutoEditandoInline(produto.id)
+                                }
+                              }}
+                            >
+                              {produtoEditandoInline === produto.id ? (
+                                <span className="flex items-center">
+                                  <X className="h-4 w-4 mr-2" />
+                                  Cancelar
+                                </span>
+                              ) : (
+                                <span className="flex items-center">
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar
+                                </span>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* Grade de Produtos para Visitantes/Clientes/Lojistas */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {produtos.map((produto) => {
+                  const precoNormal = produto.precoNormal || produto.precoFinal
+                  const precoPromo = produto.precoPromo
+                  const emPromocao = produto.emPromocao && precoPromo
+                  const precoFinal = emPromocao ? precoPromo : precoNormal
+
+                  return (
+                    <div
+                      key={produto.id}
+                      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+                    >
+                      {/* Imagem do Produto */}
+                      {produto.fotos?.[0] && (
+                        <Link 
+                          href={`/produto/${produto.id}`}
+                          onClick={() => {
+                            if (typeof window !== 'undefined') {
+                              sessionStorage.setItem('produtoReturnUrl', window.location.pathname)
+                            }
+                          }}
+                          className="block relative w-full h-48 bg-gray-100 cursor-pointer group"
+                        >
+                          <Image
+                            src={produto.fotos[0].url}
+                            alt={produto.nome}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {emPromocao && (
+                            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                              PROMOÇÃO
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                            <span className="opacity-0 group-hover:opacity-100 text-white font-semibold bg-[#16A34A] px-4 py-2 rounded">
+                              Ver Detalhes
+                            </span>
+                          </div>
+                        </Link>
+                      )}
+
+                      {/* Informações do Produto */}
+                      <div className="p-4">
+                        <Link 
+                          href={`/produto/${produto.id}`}
+                          onClick={() => {
+                            if (typeof window !== 'undefined') {
+                              sessionStorage.setItem('produtoReturnUrl', window.location.pathname)
+                            }
+                          }}
+                          className="block"
+                        >
+                          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 hover:text-[#16A34A] transition-colors">
+                            {produto.nome}
+                          </h3>
+                        </Link>
+
+                        {/* Preços */}
+                        <div className="mb-3">
+                          {emPromocao ? (
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-400 line-through">
+                                  R$ {precoNormal?.toFixed(2)}
+                                </span>
+                              </div>
+                              <p className="text-xl font-bold text-[#16A34A]">
+                                R$ {precoPromo?.toFixed(2)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-xl font-bold text-[#16A34A]">
+                              R$ {precoFinal?.toFixed(2) || 'N/A'}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Botão Adicionar ao Carrinho */}
+                        <Button
+                          onClick={() => handleAdicionarAoCarrinho(produto)}
+                          className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white"
+                          size="sm"
+                        >
+                          Adicionar ao Carrinho
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Paginação */}
             {paginacao && paginacao.totalPaginas > 1 && (
@@ -437,6 +693,18 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
       {/* Botão flutuante do carrinho */}
       <CartButton onClick={toggleCarrinho} isOpen={carrinhoAberto} />
+
+      {/* Modal de Edição de Produto - apenas para não-admin */}
+      {!isAdminMode && produtoEditando && (
+        <DialogProdutoCompleto
+          produtoId={produtoEditando}
+          onClose={() => setProdutoEditando(null)}
+          onSave={async () => {
+            await carregarProdutos(page)
+            setProdutoEditando(null)
+          }}
+        />
+      )}
     </div>
   )
 }

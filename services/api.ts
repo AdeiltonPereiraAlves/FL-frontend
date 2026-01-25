@@ -3,7 +3,7 @@ import { sanitizeObject } from '@/utils/security'
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-  timeout: 10000,
+  timeout: 30000, // Aumentado para 30s para carregar produtos completos com muitas relações
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -20,9 +20,18 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`
       }
 
-      // Sanitiza dados do body para POST/PUT/PATCH
-      if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
-        config.data = sanitizeObject(config.data)
+      // IMPORTANTE: Se for FormData, remove Content-Type para o navegador definir automaticamente
+      // com o boundary correto
+      if (config.data instanceof FormData) {
+        // Remove Content-Type para permitir que o navegador defina com boundary
+        if (config.headers) {
+          delete config.headers['Content-Type']
+        }
+      } else {
+        // Sanitiza dados do body para POST/PUT/PATCH (apenas se não for FormData)
+        if (config.data && typeof config.data === 'object') {
+          config.data = sanitizeObject(config.data)
+        }
       }
 
       // Sanitiza parâmetros da URL

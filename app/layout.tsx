@@ -11,6 +11,8 @@ const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 import 'leaflet/dist/leaflet.css'
 import { CartProvider } from "@/contexts/CartContext"
+import { Toaster } from "@/components/ui/toaster"
+
 export const metadata: Metadata = {
   title: 'Feira Livre - Encontre os melhores produtos locais',
   description:
@@ -59,6 +61,7 @@ export default function RootLayout({
               <ProductProvider>
                 <CartProvider>
                   {children}
+                  <Toaster />
                 </CartProvider>
               </ProductProvider>
             </AuthProvider>

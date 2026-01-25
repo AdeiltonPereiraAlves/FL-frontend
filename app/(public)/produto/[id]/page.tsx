@@ -197,38 +197,59 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
           {/* Imagens do Produto */}
           <div className="space-y-4">
             {produto.fotos && produto.fotos.length > 0 ? (
-              <div className="relative w-full h-96 rounded-lg overflow-hidden bg-gray-100">
-                <Image
-                  src={produto.fotos[0].url}
-                  alt={produto.nome}
-                  fill
-                  className="object-cover"
-                />
-                {emPromocao && (
-                  <div className="absolute top-4 right-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded">
-                    PROMOÇÃO
-                  </div>
-                )}
-              </div>
+              <>
+                {/* Imagem Principal (destaque ou primeira) */}
+                {(() => {
+                  const fotoPrincipal = produto.fotos.find((f: any) => f.destaque) || produto.fotos[0]
+                  const outrasFotos = produto.fotos.filter((f: any) => f.id !== fotoPrincipal.id)
+                  
+                  return (
+                    <>
+                      <div className="relative w-full h-96 rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
+                        <Image
+                          src={fotoPrincipal.url}
+                          alt={produto.nome}
+                          fill
+                          className="object-cover"
+                          priority
+                        />
+                        {fotoPrincipal.destaque && (
+                          <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-semibold">
+                            Imagem Principal
+                          </div>
+                        )}
+                        {emPromocao && (
+                          <div className="absolute top-4 right-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded">
+                            PROMOÇÃO
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Galeria de outras fotos */}
+                      {outrasFotos.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2">
+                          {outrasFotos.map((foto: any) => (
+                            <div 
+                              key={foto.id} 
+                              className="relative w-full h-20 rounded overflow-hidden bg-gray-100 border-2 border-gray-200 cursor-pointer hover:border-primary transition-colors"
+                            >
+                              <Image
+                                src={foto.url}
+                                alt={`${produto.nome} - Foto ${foto.ordem || ''}`}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </>
             ) : (
               <div className="w-full h-96 rounded-lg bg-gray-200 flex items-center justify-center">
                 <Package className="h-24 w-24 text-gray-400" />
-              </div>
-            )}
-
-            {/* Galeria de fotos (se houver mais de uma) */}
-            {produto.fotos && produto.fotos.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {produto.fotos.slice(1, 5).map((foto: any) => (
-                  <div key={foto.id} className="relative w-full h-20 rounded overflow-hidden bg-gray-100">
-                    <Image
-                      src={foto.url}
-                      alt={produto.nome}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                ))}
               </div>
             )}
           </div>

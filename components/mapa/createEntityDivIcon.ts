@@ -109,12 +109,12 @@ export function createEntityDivIcon({
       
       <!-- LOGO (só aparece se temLogo = true) -->
       ${temLogo
-        ? `<div style="width: ${temDestaque ? '56px' : '48px'}; height: ${temDestaque ? '56px' : '48px'}; border-radius: 9999px; overflow: hidden; border: 2px solid ${highlight ? '#22c55e' : temDestaque ? '#16A34A' : 'white'}; ${highlight ? 'border-width: 4px; box-shadow: 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.5);' : temDestaque ? 'border-width: 3px; box-shadow: 0 0 0 2px #16A34A, 0 4px 12px rgba(22, 163, 74, 0.4);' : ''} box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); background: white; transition: all 0.3s; position: relative;">
+        ? `<div class="${temDestaque ? 'premium-marker' : ''}" style="width: ${temDestaque ? '56px' : '48px'}; height: ${temDestaque ? '56px' : '48px'}; border-radius: 9999px; overflow: hidden; border: 2px solid ${highlight ? '#22c55e' : temDestaque ? '#16A34A' : 'white'}; ${highlight ? 'border-width: 4px; box-shadow: 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.5);' : temDestaque ? 'border-width: 3px; box-shadow: 0 0 0 2px #16A34A, 0 4px 12px rgba(22, 163, 74, 0.4); animation: premiumPulse 2s ease-in-out infinite;' : ''} box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); background: white; transition: all 0.3s; position: relative;">
           <img src="${safeImageUrl}" 
                alt="${safeNomeEntidade || 'Entidade'}" 
                style="width: 100%; height: 100%; object-fit: cover;"
                loading="lazy" />
-          ${temDestaque ? '<div style="position: absolute; top: -2px; right: -2px; background: #16A34A; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">⭐</div>' : ''}
+          ${temDestaque ? '<div class="premium-badge" style="position: absolute; top: -2px; right: -2px; background: #16A34A; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); animation: premiumBadgePulse 1.5s ease-in-out infinite;">⭐</div>' : ''}
         </div>`
         : `<div style="width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; border: 2px solid #9CA3AF; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); background: #F3F4F6; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
           <div style="width: 24px; height: 24px; background: #9CA3AF; border-radius: 50%;"></div>
