@@ -25,6 +25,9 @@ export default function CheckoutPage() {
   const { carrinho, alterarQuantidade, remover, total, limpar } = useCart()
   const router = useRouter()
   
+  // Página anterior para voltar dinamicamente
+  const [paginaAnterior, setPaginaAnterior] = useState<string>('/')
+  
   // Estado do formulário
   const [dadosCliente, setDadosCliente] = useState({
     nome: '',
@@ -33,6 +36,25 @@ export default function CheckoutPage() {
     contato: '',
     referencia: '',
   })
+
+  // Carregar página anterior do sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const returnUrl = sessionStorage.getItem('checkoutReturnUrl')
+      if (returnUrl) {
+        setPaginaAnterior(returnUrl)
+      } else {
+        // Se não houver URL salva, tenta usar o referrer do navegador
+        const referrer = document.referrer
+        if (referrer && referrer.includes(window.location.origin)) {
+          const referrerPath = new URL(referrer).pathname
+          if (referrerPath !== '/checkout') {
+            setPaginaAnterior(referrerPath)
+          }
+        }
+      }
+    }
+  }, [])
 
   // Estado de erros de validação
   const [erros, setErros] = useState<Record<string, string>>({})
@@ -172,12 +194,13 @@ export default function CheckoutPage() {
             <p className="text-gray-500 mb-6">
               Adicione produtos ao carrinho para continuar
             </p>
-            <Link href="/">
-              <Button className="bg-[#FE6233] hover:bg-[#E9571C] text-white">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar para a busca
-              </Button>
-            </Link>
+            <Button 
+              onClick={() => router.push(paginaAnterior)}
+              className="bg-[#16A34A] hover:bg-[#15803D] text-white"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
           </div>
         </div>
       </div>
@@ -412,12 +435,14 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
-          <Link href="/">
-            <Button variant="ghost" className="mb-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-          </Link>
+          <Button 
+            variant="ghost" 
+            className="mb-4"
+            onClick={() => router.push(paginaAnterior)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
           <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
           <p className="text-gray-500 mt-2">
             Revise seus itens antes de finalizar
@@ -508,7 +533,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                                 <span className="font-medium">Telefone:</span>
                                 <a 
                                   href={`tel:${telefone}`}
-                                  className="text-[#FE6233] hover:underline"
+                                  className="text-[#16A34A] hover:underline"
                                 >
                                   {telefone}
                                 </a>
@@ -519,7 +544,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                                 <span className="font-medium">Email:</span>
                                 <a 
                                   href={`mailto:${email}`}
-                                  className="text-[#FE6233] hover:underline"
+                                  className="text-[#16A34A] hover:underline"
                                 >
                                   {email}
                                 </a>
@@ -573,7 +598,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                         </div>
 
                         <div className="text-right min-w-[80px]">
-                          <p className="font-bold text-[#FE6233]">
+                          <p className="font-bold text-[#16A34A]">
                             R$ {(item.precoFinal * item.quantidade).toFixed(2)}
                           </p>
                         </div>
@@ -594,7 +619,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                   <span className="font-semibold text-gray-700">
                     Subtotal desta loja:
                   </span>
-                  <span className="font-bold text-lg text-[#FE6233]">
+                  <span className="font-bold text-lg text-[#16A34A]">
                     R$ {grupo.subtotal.toFixed(2)}
                   </span>
                 </div>
@@ -722,7 +747,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                   <span className="text-lg font-semibold text-gray-900">
                     Total:
                   </span>
-                  <span className="text-2xl font-bold text-[#FE6233]">
+                  <span className="text-2xl font-bold text-[#16A34A]">
                     R$ {total.toFixed(2)}
                   </span>
                 </div>
@@ -750,7 +775,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
 
                 <Button
                   variant="outline"
-                  className="w-full border-[#FE6233] text-[#FE6233] hover:bg-[#FE6233] hover:text-white"
+                  className="w-full border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
                   onClick={() => {
                     gerarPDFListaCompras(itensPorLoja, total)
                   }}
@@ -764,7 +789,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                   className="w-full"
                   onClick={() => {
                     limpar()
-                    router.push('/')
+                    router.push(paginaAnterior)
                   }}
                 >
                   Limpar Carrinho
@@ -827,7 +852,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
               {lojasHabilitadas.map((grupo: any, index: number) => (
                 <div key={grupo.loja.id} className="flex justify-between items-center text-sm">
                   <span className="text-gray-700">{index + 1}. {grupo.loja.nome}</span>
-                  <span className="font-semibold text-[#FE6233]">
+                  <span className="font-semibold text-[#16A34A]">
                     R$ {grupo.subtotal.toFixed(2)}
                   </span>
                 </div>
@@ -836,7 +861,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
             <div className="mt-3 pt-3 border-t">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-gray-900">Total Geral:</span>
-                <span className="text-lg font-bold text-[#FE6233]">
+                <span className="text-lg font-bold text-[#16A34A]">
                   R$ {total.toFixed(2)}
                 </span>
               </div>

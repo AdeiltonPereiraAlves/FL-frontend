@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ApiProvider } from '@/contexts/ApiContext'
 import './globals.css'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { ProductProvider } from "@/contexts/ProductContext"
@@ -52,16 +53,16 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className="font-sans antialiased">
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
-
           <Analytics />
-          <AuthProvider>
-            <ProductProvider>
-              <CartProvider>
-                {children}
-              </CartProvider>
-            </ProductProvider>
-          </AuthProvider>
-
+          <ApiProvider>
+            <AuthProvider>
+              <ProductProvider>
+                <CartProvider>
+                  {children}
+                </CartProvider>
+              </ProductProvider>
+            </AuthProvider>
+          </ApiProvider>
         </GoogleOAuthProvider>
       </body>
     </html>

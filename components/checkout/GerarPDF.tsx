@@ -38,7 +38,7 @@ export function gerarPDFListaCompras(itensPorLoja: Record<string, GrupoLoja>, to
 
   // Título (menor)
   doc.setFontSize(16) // Reduzido de 20 para 16
-  doc.setTextColor(254, 98, 51) // #FE6233
+  doc.setTextColor(22, 163, 74) // #16A34A
   doc.text('Lista de Compras', pageWidth / 2, yPos, { align: 'center' })
   yPos += 8 // Reduzido de 15 para 8
 

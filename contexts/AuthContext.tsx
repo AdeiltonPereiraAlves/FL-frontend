@@ -1,9 +1,10 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { User, AuthContextType, LoginCredentials } from '@/types/auth'
+import { User, AuthContextType, LoginCredentials, TipoPapel } from '@/types/auth'
 import api from '@/services/api'
 import { CadastroCredentials } from '@/types/auth'
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Mock user for development
@@ -31,8 +32,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     if (storedToken && storedUser && storedUser !== 'undefined') {
       try {
+        const parsedUser = JSON.parse(storedUser)
         setToken(storedToken)
-        setUser(JSON.parse(storedUser))
+        setUser(parsedUser)
       } catch {
         // limpa dados corrompidos
         localStorage.removeItem('token')
@@ -45,64 +47,70 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false)
   }, [])
 
+  // Funções de verificação de roles
+  const hasRole = useCallback((role: TipoPapel): boolean => {
+    if (!user?.papeis) return false
+    return user.papeis.some((papel) => papel.tipo === role)
+  }, [user])
+
+  const hasAnyRole = useCallback((roles: TipoPapel[]): boolean => {
+    if (!user?.papeis) return false
+    return user.papeis.some((papel) => roles.includes(papel.tipo))
+  }, [user])
+
+  const isLojista = useCallback((): boolean => {
+    return hasRole(TipoPapel.LOJISTA)
+  }, [hasRole])
+
+  const isAdmin = useCallback((): boolean => {
+    return hasRole(TipoPapel.ADMIN) || hasRole(TipoPapel.DONO_SISTEMA)
+  }, [hasRole])
+
+  const isCliente = useCallback((): boolean => {
+    return hasRole(TipoPapel.CLIENTE)
+  }, [hasRole])
+
 
   //cadastro
   const cadastro = useCallback(async (credentials: CadastroCredentials) => {
     setIsLoading(true)
     try {
-      // TODO: Replace with real API call when backend is ready
-      // const response = await api.post('/auth/login', credentials)
-      // const { user, token } = response.data
-      const response = await api.post('/registrar', credentials)
-      const { usuario, token } = response.data;
-
-      // Mock login - simulating API delay
+      const response = await api.post<{ usuario: User; token: string }>('/registrar', credentials)
+      const { usuario, token } = response.data
 
       if (!usuario || !token) {
         throw new Error("Erro no cadastro")
       }
-      // Validate mock credentials (for demo purposes)
-
 
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(usuario))
 
       setToken(token)
       setUser(usuario)
-
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('Cadastro error:', error)
       throw error
     } finally {
       setIsLoading(false)
     }
   }, [])
+
   // Login with email/password
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true)
     try {
-      // TODO: Replace with real API call when backend is ready
-      // const response = await api.post('/auth/login', credentials)
-      // const { user, token } = response.data
-      const response = await api.post('/login', credentials)
-      const { usuario, token } = response.data;
+      const response = await api.post<{ usuario: User; token: string }>('/login', credentials)
+      const { usuario, token } = response.data
 
-      console.log(usuario, token,"usuario no login")
       if (!usuario || !token) {
         throw new Error("Erro no login")
       }
-      // Mock login - simulating API delay
-
-
-      // Validate mock credentials (for demo purposes)
-
 
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(usuario))
 
       setToken(token)
       setUser(usuario)
-
     } catch (error) {
       console.error('Login error:', error)
       throw error
@@ -124,7 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const loginWithGoogle = useCallback(async (idToken: string) => {
     setIsLoading(true)
     try {
-      const response = await api.post('/auth/google', {
+      const response = await api.post<{ usuario: User; token: string }>('/auth/google', {
         credential: idToken,
       })
 
@@ -132,6 +140,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!usuario || !token) {
         throw new Error("Erro no login")
       }
+      
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(usuario))
 
@@ -153,7 +162,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     loginWithGoogle,
     logout,
-    cadastro
+    cadastro,
+    hasRole,
+    hasAnyRole,
+    isLojista,
+    isAdmin,
+    isCliente,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

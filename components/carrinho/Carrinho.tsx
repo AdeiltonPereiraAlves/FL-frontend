@@ -17,19 +17,19 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b bg-[#FE6233] text-white">
+      <div className="flex justify-between items-center p-4 border-b bg-[#16A34A] text-white">
         <div className="flex items-center gap-2">
           <ShoppingBag className="h-5 w-5" />
           <h4 className="font-semibold text-lg">Carrinho</h4>
           {carrinho.length > 0 && (
-            <span className="bg-white text-[#FE6233] px-2 py-0.5 rounded-full text-xs font-bold">
+            <span className="bg-white text-[#16A34A] px-2 py-0.5 rounded-full text-xs font-bold">
               {carrinho.length}
             </span>
           )}
         </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-[#E9571C] rounded transition-colors"
+          className="p-1 hover:bg-[#15803D] rounded transition-colors"
         >
           <X className="h-5 w-5" />
         </button>
@@ -89,7 +89,7 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
                   </div>
 
                   <div className="text-right">
-                    <p className="font-bold text-[#FE6233]">
+                    <p className="font-bold text-[#16A34A]">
                       R$ {(item.precoFinal * item.quantidade).toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -108,17 +108,32 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
         <div className="p-4 border-t bg-gray-50 space-y-3">
           <div className="flex justify-between items-center text-lg">
             <span className="font-semibold text-gray-700">Total:</span>
-            <span className="font-bold text-2xl text-[#FE6233]">
+            <span className="font-bold text-2xl text-[#16A34A]">
               R$ {total.toFixed(2)}
             </span>
           </div>
 
           <Button
             onClick={() => {
+              // Salvar a página atual antes de ir para o checkout
+              if (typeof window !== 'undefined') {
+                sessionStorage.setItem('checkoutReturnUrl', window.location.pathname)
+                
+                // Salvar estado da busca atual para restaurar ao voltar
+                try {
+                  const savedSearch = localStorage.getItem('feiralivre:ultimaBusca')
+                  if (savedSearch) {
+                    // Salva no sessionStorage para restaurar ao voltar
+                    sessionStorage.setItem('feiralivre:checkoutReturnState', savedSearch)
+                  }
+                } catch (err) {
+                  console.error('Erro ao salvar estado para checkout:', err)
+                }
+              }
               router.push('/checkout')
               onClose()
             }}
-            className="w-full bg-[#FE6233] hover:bg-[#E9571C] text-white font-semibold"
+            className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold"
           >
             Finalizar Compra
           </Button>

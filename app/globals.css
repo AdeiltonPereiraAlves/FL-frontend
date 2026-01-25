@@ -4,9 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Paleta FeiraLivre: #FE6233 (laranja), branco, cinza, preto, vermelho */
-  --feiralivre-primary: #FE6233;
-  --feiralivre-primary-dark: #E9571C;
+  /* Paleta FeiraLivre: #16A34A (verde), branco, cinza, preto, vermelho */
+  --feiralivre-primary: #16A34A;
+  --feiralivre-primary-dark: #15803D;
   --feiralivre-white: #FFFFFF;
   --feiralivre-gray: #6B7280;
   --feiralivre-gray-light: #F3F4F6;
@@ -169,7 +169,7 @@
   position: absolute;
   top: 100%;
   margin-top: 4px;
-  background: #E9571C;
+  background: #15803D;
   color: white;
   font-size: 12px;
   padding: 4px 10px;
@@ -185,6 +185,28 @@
 .marker-wrapper:hover .marker-link {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Estilos para o botão hover nos marcadores do Leaflet */
+.entity-marker-wrapper {
+  position: relative;
+}
+
+.entity-marker-wrapper:hover .entity-marker-button {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.entity-marker-button {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* Garantir que o hover funcione mesmo dentro do Leaflet */
+.leaflet-container .entity-marker-wrapper:hover .entity-marker-button {
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 

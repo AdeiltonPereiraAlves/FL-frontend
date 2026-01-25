@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import { X, Calendar, Truck, Package, Store, Tag, Copy, Check, AlertCircle, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 
@@ -37,10 +36,6 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
       minute: '2-digit',
     })
   }
-
-  const whatsappUrl = produto.entidade?.contato?.redes?.find(
-    (r: any) => r.tipo === 'WHATSAPP'
-  )?.url
 
   const copiarCupom = (codigo: string) => {
     navigator.clipboard.writeText(codigo)
@@ -76,18 +71,18 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b bg-[#FE6233] text-white">
+      <div className="flex justify-between items-center p-4 border-b bg-[#16A34A] text-white">
         <h3 className="font-bold text-lg flex-1 truncate pr-2">{produto.nome}</h3>
         <div className="flex items-center gap-2">
           {onAbrirCarrinho && (
             <button
               onClick={onAbrirCarrinho}
-              className="p-1.5 hover:bg-[#E9571C] rounded transition-colors relative"
+              className="p-1.5 hover:bg-[#15803D] rounded transition-colors relative"
               title="Ver carrinho"
             >
               <ShoppingBag className="h-5 w-5" />
               {carrinho.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-white text-[#FE6233] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-white text-[#16A34A] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {carrinho.length}
                 </span>
               )}
@@ -95,7 +90,7 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
           )}
           <button
             onClick={onClose}
-            className="p-1 hover:bg-[#E9571C] rounded transition-colors"
+            className="p-1 hover:bg-[#15803D] rounded transition-colors"
             title="Fechar"
           >
             <X className="h-5 w-5" />
@@ -129,7 +124,7 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
                   PROMOÇÃO
                 </span>
               </div>
-              <p className="text-3xl font-bold text-[#FE6233]">
+              <p className="text-3xl font-bold text-[#16A34A]">
                 R$ {precoPromo?.toFixed(2)}
               </p>
               {produto.variacoes?.[0]?.descontoPerc && (
@@ -139,7 +134,7 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
               )}
             </div>
           ) : (
-            <p className="text-3xl font-bold text-[#FE6233]">
+            <p className="text-3xl font-bold text-[#16A34A]">
               R$ {precoFinal?.toFixed(2) || 'N/A'}
             </p>
           )}
@@ -360,21 +355,10 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
       <div className="p-4 border-t space-y-2 bg-gray-50">
         <Button
           onClick={handleAdicionar}
-          className="w-full bg-[#FE6233] hover:bg-[#E9571C] text-white font-semibold h-12"
+          className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold h-12"
         >
           Adicionar {quantidade > 1 ? `${quantidade} itens` : 'ao carrinho'}
         </Button>
-
-        {whatsappUrl && (
-          <Link href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-            <Button
-              variant="outline"
-              className="w-full border-[#FE6233] text-[#FE6233] hover:bg-[#FE6233] hover:text-white h-12"
-            >
-              Falar com a loja
-            </Button>
-          </Link>
-        )}
       </div>
     </div>
   )

@@ -52,7 +52,7 @@ export function PopupProdutoMapa({
             <p className={`text-xl font-bold ${
               isDestaque 
                 ? 'text-green-600' 
-                : 'text-[#FE6233]'
+                : 'text-[#16A34A]'
             }`}>
               R$ {produto.precoPromo?.toFixed(2) || produto.precoFinal?.toFixed(2)}
             </p>
@@ -61,7 +61,7 @@ export function PopupProdutoMapa({
           <p className={`text-xl font-bold ${
             isDestaque 
               ? 'text-green-600' 
-              : 'text-[#FE6233]'
+              : 'text-[#16A34A]'
           }`}>
             R$ {produto.precoFinal?.toFixed(2) || 'N/A'}
           </p>
@@ -100,7 +100,7 @@ export function PopupProdutoMapa({
 
         <button
           onClick={handleAdd}
-          className="flex-1 bg-[#FE6233] text-white rounded-md py-1.5 text-xs font-semibold hover:bg-[#E9571C] transition-colors"
+          className="flex-1 bg-[#16A34A] text-white rounded-md py-1.5 text-xs font-semibold hover:bg-[#15803D] transition-colors"
         >
           Adicionar
         </button>

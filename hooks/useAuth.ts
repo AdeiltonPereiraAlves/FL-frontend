@@ -48,6 +48,12 @@ export function useAuth() {
     loginAndRedirect,
     logoutAndRedirect,
     requireAuth,
-    cadastroAndRedirect
+    cadastroAndRedirect,
+    // Métodos de role do contexto
+    hasRole: auth.hasRole,
+    hasAnyRole: auth.hasAnyRole,
+    isLojista: auth.isLojista,
+    isAdmin: auth.isAdmin,
+    isCliente: auth.isCliente,
   }
 }
