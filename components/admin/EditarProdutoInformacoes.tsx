@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Package, Tag, Plus, Trash2, Save, Loader2 } from 'lucide-react'
 import { useApiContext } from '@/contexts/ApiContext'
-import { EditarVariacaoForm } from './EditarVariacaoForm'
+import { useToast } from '@/hooks/use-toast'
+// MVP: Removido EditarVariacaoForm - não usar variações no MVP
 
 interface EditarProdutoInformacoesProps {
   produto: any
@@ -28,7 +29,9 @@ export function EditarProdutoInformacoes({
   isLoading = false,
 }: EditarProdutoInformacoesProps) {
   const api = useApiContext()
+  const { toast } = useToast()
   
+  // MVP: Inicializar formData com dados reais do backend (sem mock)
   const [formData, setFormData] = useState({
     nome: produto?.nome || '',
     descricao: produto?.descricao || '',
@@ -46,21 +49,22 @@ export function EditarProdutoInformacoes({
     profundidade: produto?.profundidade || '',
     dimensoesStr: produto?.dimensoesStr || '',
     categoriaId: produto?.categoriaId || null,
+    // MVP: Preços baseados em ProdutoPrecoHistorico (não variações)
+    preco: produto?.precoAtual || produto?.precoNormal || produto?.precoFinal || '',
+    precoPromo: produto?.precoPromo || '',
+    estoque: produto?.estoque || 0,
   })
 
-  const [variacoes, setVariacoes] = useState<any[]>(produto?.variacoes || [])
-  const [tags, setTags] = useState<string[]>(produto?.tags?.map((t: any) => t.tag.nome) || [])
-  const [atributos, setAtributos] = useState<Array<{ chave: string; valor: string }>>(
-    produto?.atributos?.map((a: any) => ({ chave: a.chave, valor: a.valor })) || []
-  )
+  // MVP: Estados para tags e atributos (não usar variações)
+  const [tags, setTags] = useState<string[]>([])
+  const [atributos, setAtributos] = useState<Array<{ chave: string; valor: string; id?: string | null }>>([])
   const [categorias, setCategorias] = useState<any[]>([])
-  const [variacaoEditando, setVariacaoEditando] = useState<number | null>(null)
   const [novaTag, setNovaTag] = useState('')
 
   useEffect(() => {
     async function carregarCategorias() {
       try {
-        const data = await api.get('/categorias-produto')
+        const data = await api.get('/categorias-produto') as any[]
         setCategorias(data || [])
       } catch (error) {
         console.error('Erro ao carregar categorias:', error)
@@ -69,9 +73,71 @@ export function EditarProdutoInformacoes({
     carregarCategorias()
   }, [api])
 
+  // Carregar atributos separadamente se não vierem no produto
+  useEffect(() => {
+    async function carregarAtributos() {
+      if (!produto?.id) return
+      
+      // Se não há atributos ou se o array está vazio, tentar carregar separadamente
+      if (!produto.atributos || produto.atributos.length === 0) {
+        try {
+          console.log('📦 [EditarProdutoInformacoes] Carregando atributos separadamente...')
+          const data = await api.get(`/produto/${produto.id}/atributos`) as { atributos?: Array<{ id?: string; chave: string; valor: string }> }
+          console.log('📦 [EditarProdutoInformacoes] Atributos carregados separadamente:', data?.atributos)
+          
+          if (data?.atributos && data.atributos.length > 0) {
+            const atributosProcessados = data.atributos.map((a: any) => ({
+              chave: a.chave || '',
+              valor: a.valor || '',
+              id: a.id || null,
+            }))
+            setAtributos(atributosProcessados)
+            console.log('📦 [EditarProdutoInformacoes] Atributos processados e definidos:', atributosProcessados)
+          }
+        } catch (error) {
+          console.error('Erro ao carregar atributos separadamente:', error)
+          // Não é crítico, pode não ter atributos
+        }
+      }
+    }
+    carregarAtributos()
+  }, [produto?.id, api])
+
   // Sincronizar dados quando produto mudar
   useEffect(() => {
     if (produto) {
+      console.log('📦 [EditarProdutoInformacoes] Produto recebido:', produto)
+      console.log('📦 [EditarProdutoInformacoes] Atributos recebidos:', produto.atributos)
+      console.log('📦 [EditarProdutoInformacoes] Tags recebidas:', produto.tags)
+      console.log('💰 [EditarProdutoInformacoes] Preços recebidos:', {
+        precoAtual: produto.precoAtual,
+        precoAntigo: produto.precoAntigo,
+        precoPromo: produto.precoPromo,
+        emPromocao: produto.emPromocao,
+      })
+      
+      // MVP: Incluir preços do ProdutoPrecoHistorico (não variações)
+      // Se está em promoção, precoAtual é o promocional e precoAntigo é o normal
+      // Se não está em promoção, precoAtual é o normal e precoAntigo é null
+      const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || ''
+      const precoPromo = produto.emPromocao && produto.precoAntigo 
+        ? produto.precoAtual // Se está em promoção, o precoAtual já é o promocional
+        : (produto.precoPromo || '') // Caso contrário, usa precoPromo se existir
+      const precoNormalParaEdicao = produto.emPromocao && produto.precoAntigo
+        ? produto.precoAntigo // Se está em promoção, o precoAntigo é o preço normal
+        : precoAtual // Caso contrário, o precoAtual é o normal
+      const estoque = produto.estoque || 0
+      
+      console.log('💰 [EditarProdutoInformacoes] Cálculo de preços para edição:', {
+        precoAtual: produto.precoAtual,
+        precoAntigo: produto.precoAntigo,
+        precoNormal: produto.precoNormal,
+        precoPromo: produto.precoPromo,
+        emPromocao: produto.emPromocao,
+        precoNormalParaEdicao,
+        precoPromoParaEdicao: precoPromo,
+      })
+      
       setFormData({
         nome: produto.nome || '',
         descricao: produto.descricao || '',
@@ -89,10 +155,41 @@ export function EditarProdutoInformacoes({
         profundidade: produto.profundidade || '',
         dimensoesStr: produto.dimensoesStr || '',
         categoriaId: produto.categoriaId || null,
+        // MVP: Preços baseados em ProdutoPrecoHistorico
+        // preco = preço normal (sempre)
+        // precoPromo = preço promocional (opcional)
+        preco: precoNormalParaEdicao,
+        precoPromo: precoPromo || '',
+        estoque: estoque,
       })
-      setVariacoes(produto.variacoes || [])
-      setTags(produto.tags?.map((t: any) => t.tag.nome) || [])
-      setAtributos(produto.atributos?.map((a: any) => ({ chave: a.chave, valor: a.valor })) || [])
+      
+      console.log('💰 [EditarProdutoInformacoes] Preços carregados:', { precoAtual, precoPromo, estoque })
+      
+      // Processar tags
+      const tagsProcessadas = produto.tags?.map((t: any) => {
+        // Pode vir como objeto com tag.nome ou diretamente como string
+        return typeof t === 'string' ? t : (t.tag?.nome || t.nome || '')
+      }).filter(Boolean) || []
+      console.log('📦 [EditarProdutoInformacoes] Tags processadas:', tagsProcessadas)
+      setTags(tagsProcessadas)
+      
+      // Processar atributos
+      // IMPORTANTE: Não filtrar aqui - mostrar todos os atributos, mesmo vazios
+      // O filtro será feito apenas no momento de salvar
+      const atributosProcessados = produto.atributos?.map((a: any) => {
+        // Pode vir como objeto direto ou com estrutura aninhada
+        if (typeof a === 'object' && a !== null) {
+          return {
+            chave: a.chave || '',
+            valor: a.valor || '',
+            id: a.id || null, // Manter ID se existir para referência
+          }
+        }
+        return { chave: '', valor: '', id: null }
+      }) || []
+      console.log('📦 [EditarProdutoInformacoes] Atributos processados:', atributosProcessados.length, atributosProcessados)
+      console.log('📦 [EditarProdutoInformacoes] Detalhes dos atributos:', JSON.stringify(atributosProcessados, null, 2))
+      setAtributos(atributosProcessados)
     }
   }, [produto])
 
@@ -116,26 +213,42 @@ export function EditarProdutoInformacoes({
       categoriaId: formData.categoriaId || null,
     }
 
-    const variacoesFormatadas = variacoes.map((v, index) => ({
-      nome: v.nome,
-      preco: Number(v.preco),
-      precoPromocional: v.precoPromocional ? Number(v.precoPromocional) : null,
-      estoque: Number(v.estoque),
-      quantidade: v.quantidade ? Number(v.quantidade) : null,
-      unidadeMedida: v.unidadeMedida || null,
-      bateMinimoEntrega: v.bateMinimoEntrega || false,
-      validadePromocao: v.validadePromocao || null,
-      ordem: v.ordem ?? index,
-    }))
+    // MVP: Incluir preços e estoque (será salvo em ProdutoPrecoHistorico)
+    const precoNumero = formData.preco ? Number(formData.preco) : null
+    const precoPromoNumero = formData.precoPromo && formData.precoPromo !== '' 
+      ? Number(formData.precoPromo) 
+      : null
+    const estoqueNumero = formData.estoque ? Number(formData.estoque) : 0
 
-    const atributosFormatados = atributos.filter(a => a.chave.trim() && a.valor.trim())
-
-    await onSave({
-      ...dadosBasicos,
-      tags: tags,
-      atributos: atributosFormatados,
-      variacoes: variacoesFormatadas,
+    console.log('💾 [EditarProdutoInformacoes] Salvando preços:', {
+      preco: precoNumero,
+      precoPromo: precoPromoNumero,
+      estoque: estoqueNumero,
+      formDataPreco: formData.preco,
+      formDataPrecoPromo: formData.precoPromo,
+      formDataEstoque: formData.estoque,
     })
+
+    const dadosCompletos = {
+      ...dadosBasicos,
+      // Preços serão salvos em ProdutoPrecoHistorico
+      preco: precoNumero,
+      precoPromo: precoPromoNumero,
+      estoque: estoqueNumero,
+      tags: tags,
+      // Formatar atributos removendo IDs e filtrando vazios
+      atributos: atributos
+        .filter(a => a.chave && a.valor && a.chave.trim() && a.valor.trim())
+        .map(a => ({ chave: a.chave.trim(), valor: a.valor.trim() })),
+    }
+
+    console.log('💾 [EditarProdutoInformacoes] Dados completos a enviar:', {
+      ...dadosCompletos,
+      tags: dadosCompletos.tags.length,
+      atributos: dadosCompletos.atributos.length,
+    })
+
+    await onSave(dadosCompletos)
   }
 
   const adicionarTag = () => {
@@ -295,18 +408,38 @@ export function EditarProdutoInformacoes({
                 className="mt-1"
               />
             </div>
-            {formData.perecivel && (
-              <div>
-                <Label htmlFor="validade">Data de Validade</Label>
-                <Input
-                  id="validade"
-                  type="date"
-                  value={formData.validade}
-                  onChange={(e) => setFormData({ ...formData, validade: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-            )}
+            <div>
+              <Label htmlFor="validade">Data de Validade</Label>
+              <Input
+                id="validade"
+                type="date"
+                value={formData.validade}
+                onChange={(e) => setFormData({ ...formData, validade: e.target.value })}
+                className="mt-1"
+                min={new Date().toISOString().split('T')[0]} // Não permite datas no passado
+              />
+              {formData.validade && (
+                <p className="text-xs text-primary mt-1">
+                  Validade: {new Date(formData.validade).toLocaleDateString('pt-BR')}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.perecivel 
+                  ? 'Produto perecível - informe a data de validade'
+                  : 'Data de validade opcional (não é perecível)'}
+              </p>
+              {formData.validade && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, validade: '' })}
+                  className="mt-1 text-xs"
+                >
+                  Limpar data de validade
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -360,82 +493,93 @@ export function EditarProdutoInformacoes({
         </CardContent>
       </Card>
 
-      {/* Variações */}
+      {/* MVP: Preços e Estoque (não usar variações) */}
       <Card>
         <CardHeader>
-          <CardTitle>Variações do Produto ({variacoes.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Preço e Estoque
+          </CardTitle>
+          <CardDescription>
+            Os preços serão salvos no histórico. Se houver preço promocional, o preço antigo aparecerá riscado.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {variacoes.length > 0 ? (
-            <div className="space-y-4">
-              {variacoes.map((variacao, index) => (
-                <div key={index}>
-                  {variacaoEditando === index ? (
-                    <EditarVariacaoForm
-                      variacao={variacao}
-                      onSave={(variacaoAtualizada) => {
-                        const novasVariacoes = [...variacoes]
-                        novasVariacoes[index] = variacaoAtualizada
-                        setVariacoes(novasVariacoes)
-                        setVariacaoEditando(null)
-                      }}
-                      onCancel={() => setVariacaoEditando(null)}
-                    />
-                  ) : (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-semibold">{variacao.nome}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            R$ {Number(variacao.preco).toFixed(2)}
-                            {variacao.precoPromocional && (
-                              <span className="ml-2 text-primary line-through">
-                                R$ {Number(variacao.precoPromocional).toFixed(2)}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setVariacaoEditando(index)}
-                        >
-                          Editar
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="preco">Preço Atual (R$) *</Label>
+              <Input
+                id="preco"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.preco}
+                onChange={(e) => setFormData({ ...formData, preco: e.target.value })}
+                required
+                className="mt-1"
+                placeholder="0.00"
+              />
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhuma variação cadastrada</p>
-          )}
+            <div>
+              <Label htmlFor="precoPromo">Preço Promocional (R$)</Label>
+              <Input
+                id="precoPromo"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.precoPromo || ''}
+                onChange={(e) => setFormData({ ...formData, precoPromo: e.target.value || '' })}
+                className="mt-1"
+                placeholder="Opcional"
+              />
+              {formData.precoPromo && Number(formData.precoPromo) > 0 && (
+                <p className="text-xs text-primary mt-1">
+                  {formData.preco && Number(formData.precoPromo) < Number(formData.preco) 
+                    ? `Economia de R$ ${(Number(formData.preco) - Number(formData.precoPromo)).toFixed(2)}`
+                    : 'Preço promocional deve ser menor que o preço atual'}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="estoque">Estoque *</Label>
+              <Input
+                id="estoque"
+                type="number"
+                min="0"
+                value={formData.estoque}
+                onChange={(e) => setFormData({ ...formData, estoque: e.target.value })}
+                required
+                className="mt-1"
+                placeholder="0"
+              />
+            </div>
+          </div>
           
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              const novaVariacao = {
-                nome: '',
-                preco: 0,
-                estoque: 0,
-                quantidade: null,
-                unidadeMedida: null,
-                bateMinimoEntrega: false,
-                precoPromocional: null,
-                validadePromocao: null,
-                ordem: variacoes.length,
-              }
-              setVariacoes([...variacoes, novaVariacao])
-              setVariacaoEditando(variacoes.length)
-            }}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Adicionar Variação
-          </Button>
+          {/* Preview de como aparecerá */}
+          {formData.preco && Number(formData.preco) > 0 && (
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
+              <p className="text-sm font-medium mb-2">Preview do preço:</p>
+              <div className="flex items-center gap-2">
+                {formData.precoPromo && Number(formData.precoPromo) > 0 && Number(formData.precoPromo) < Number(formData.preco) ? (
+                  <>
+                    <span className="text-2xl font-bold text-primary">
+                      R$ {Number(formData.precoPromo).toFixed(2)}
+                    </span>
+                    <span className="text-lg text-gray-500 line-through">
+                      R$ {Number(formData.preco).toFixed(2)}
+                    </span>
+                    <span className="px-2 py-1 bg-red-500 text-white text-xs rounded">
+                      Promoção
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-2xl font-bold">
+                    R$ {Number(formData.preco).toFixed(2)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -488,10 +632,10 @@ export function EditarProdutoInformacoes({
           <CardTitle>Atributos ({atributos.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {atributos.length > 0 && (
+          {atributos.length > 0 ? (
             <div className="space-y-2">
               {atributos.map((atributo, index) => (
-                <div key={index} className="flex gap-2">
+                <div key={atributo.id || `atributo-${index}-${atributo.chave}`} className="flex gap-2">
                   <Input
                     placeholder="Chave (ex: Marca)"
                     value={atributo.chave}
@@ -513,6 +657,8 @@ export function EditarProdutoInformacoes({
                 </div>
               ))}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhum atributo cadastrado. Clique em "Adicionar Atributo" para criar um novo.</p>
           )}
           <Button type="button" onClick={adicionarAtributo} variant="outline" className="w-full">
             <Plus className="h-4 w-4 mr-2" />
@@ -523,19 +669,17 @@ export function EditarProdutoInformacoes({
 
       {/* Botão Salvar */}
       <div className="flex justify-end pt-4 border-t">
-        <Button type="submit" disabled={isLoading} className="min-w-[140px]">
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Salvando...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Salvar Informações
-            </>
-          )}
-        </Button>
+        {isLoading ? (
+          <Button type="submit" disabled={isLoading} className="min-w-[140px]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Salvando...
+          </Button>
+        ) : (
+          <Button type="submit" disabled={isLoading} className="min-w-[140px]">
+            <Save className="h-4 w-4" />
+            Salvar Informações
+          </Button>
+        )}
       </div>
     </form>
   )

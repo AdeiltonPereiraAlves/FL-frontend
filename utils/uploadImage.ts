@@ -110,8 +110,15 @@ export async function uploadMultipleImages(
     console.log('📤 [uploadMultipleImages] É array?', Array.isArray(response))
     console.log('📤 [uploadMultipleImages] Chaves do objeto:', response ? Object.keys(response) : 'response é null/undefined')
 
-    // IMPORTANTE: O ApiContext já retorna response.data, então response já é o objeto de dados
-    const data = response
+    // IMPORTANTE: Verificar se a resposta é o objeto Axios completo ou apenas os dados
+    // Se tiver propriedade 'data' e 'status', significa que é o objeto Axios completo
+    let data = response
+    if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
+      console.log('📤 [uploadMultipleImages] Resposta é objeto Axios completo, extraindo data...')
+      data = (response as any).data
+      console.log('📤 [uploadMultipleImages] Data extraído:', data)
+      console.log('📤 [uploadMultipleImages] Chaves do data extraído:', data ? Object.keys(data) : 'data é null/undefined')
+    }
 
     // Retorna array de URLs
     // O backend retorna: { mensagem: string, fotos: Array<{url: string, destaque: boolean, ordem: number}>, totalFotos: number }

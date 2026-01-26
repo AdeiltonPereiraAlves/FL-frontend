@@ -42,6 +42,10 @@ export function EditarProdutoInline({
       setError(null)
       try {
         const data = await api.get(`/produto/${produtoId}/completo`)
+        console.log('📦 [EditarProdutoInline] Dados recebidos do backend:', data)
+        console.log('📦 [EditarProdutoInline] Atributos recebidos:', data?.atributos)
+        console.log('📦 [EditarProdutoInline] Variações recebidas:', data?.variacoes)
+        console.log('📦 [EditarProdutoInline] Tags recebidas:', data?.tags)
         setProduto(data)
       } catch (err: any) {
         console.error('Erro ao carregar produto:', err)
@@ -78,13 +82,7 @@ export function EditarProdutoInline({
       }
       
       // Recarregar dados do produto para garantir sincronização e atualizar a lista
-      console.log('🔄 [EditarProdutoInline] Recarregando dados do produto...')
-      const data = await api.get(`/produto/${produtoId}/completo`)
-      console.log('✅ [EditarProdutoInline] Produto recarregado:', data?.fotos?.length, 'imagens')
-      console.log('✅ [EditarProdutoInline] URLs das fotos:', data?.fotos?.map((f: any) => f.url))
-      
-      // Atualizar estado do produto (isso vai disparar o useEffect no EditarProdutoImagens)
-      setProduto(data)
+      await recarregarProduto()
       
       // Notificar componente pai para recarregar lista (atualização automática)
       await onSave()
@@ -105,28 +103,75 @@ export function EditarProdutoInline({
     }
   }
 
+  /**
+   * Recarrega os dados do produto do backend
+   * Usado após remoção de foto para garantir sincronização
+   */
+  const recarregarProduto = async () => {
+    console.log('🔄 [EditarProdutoInline] Recarregando dados do produto...')
+    const data = await api.get(`/produto/${produtoId}/completo`)
+    console.log('✅ [EditarProdutoInline] Produto recarregado:', data?.fotos?.length, 'imagens')
+    console.log('✅ [EditarProdutoInline] URLs das fotos:', data?.fotos?.map((f: any) => f.url))
+    
+    // Atualizar estado do produto (isso vai disparar o useEffect no EditarProdutoImagens)
+    setProduto(data)
+  }
+
+  /**
+   * Callback chamado após remover uma foto individual
+   * Recarrega o produto para garantir sincronização
+   */
+  const handleFotoRemovida = async () => {
+    await recarregarProduto()
+  }
+
   const handleSalvarInformacoes = async (dados: any) => {
     setSalvandoInformacoes(true)
     try {
-      const { fotos, tags, atributos, variacoes, ...dadosBasicos } = dados
+      // MVP: Separar dados básicos, preços, tags e atributos (não usar variações)
+      const { fotos, tags, atributos, preco, precoPromo, estoque, ...dadosBasicos } = dados
 
-      // Atualizar dados básicos
-      await api.put(`/produto/${produtoId}`, dadosBasicos)
+      console.log('💾 [EditarProdutoInline] Salvando dados:', {
+        dadosBasicos,
+        preco,
+        precoPromo,
+        estoque,
+        tags: tags?.length || 0,
+        atributos: atributos?.length || 0,
+      })
+
+      // Atualizar dados básicos + preços (preços serão salvos em ProdutoPrecoHistorico)
+      await api.put(`/produto/${produtoId}`, {
+        ...dadosBasicos,
+        preco, // Será processado no backend para criar ProdutoPrecoHistorico
+        precoPromo,
+        estoque,
+      })
 
       // Atualizar relacionamentos
-      await api.put(`/produto/${produtoId}/tags`, { 
-        tags: Array.isArray(tags) ? tags : [] 
-      })
-      await api.put(`/produto/${produtoId}/atributos`, { 
-        atributos: Array.isArray(atributos) ? atributos : [] 
-      })
-      await api.put(`/produto/${produtoId}/variacoes`, { 
-        variacoes: Array.isArray(variacoes) ? variacoes : [] 
-      })
+      if (Array.isArray(tags)) {
+        console.log('🏷️ [EditarProdutoInline] Salvando tags:', tags)
+        await api.put(`/produto/${produtoId}/tags`, { tags })
+      }
+      
+      if (Array.isArray(atributos)) {
+        console.log('📋 [EditarProdutoInline] Salvando atributos:', atributos)
+        await api.put(`/produto/${produtoId}/atributos`, { atributos })
+      }
+
+      // MVP: Não atualizar variações (não são usadas no MVP)
 
       // Recarregar dados do produto
+      console.log('🔄 [EditarProdutoInline] Recarregando produto após salvar...')
       const data = await api.get(`/produto/${produtoId}/completo`)
       setProduto(data)
+      
+      console.log('✅ [EditarProdutoInline] Produto recarregado:', {
+        tags: data?.tags?.length || 0,
+        atributos: data?.atributos?.length || 0,
+        precoAtual: data?.precoAtual,
+        precoPromo: data?.precoPromo,
+      })
       
       toast({
         title: '✅ Informações salvas com sucesso!',
@@ -136,7 +181,7 @@ export function EditarProdutoInline({
       // Notificar componente pai para recarregar lista
       await onSave()
     } catch (err: any) {
-      console.error('Erro ao salvar informações:', err)
+      console.error('❌ [EditarProdutoInline] Erro ao salvar informações:', err)
       toast({
         title: 'Erro ao salvar informações',
         description: err.message || 'Não foi possível salvar as informações.',
@@ -214,6 +259,7 @@ export function EditarProdutoInline({
                 produto={produto}
                 onSave={handleSalvarImagens}
                 isLoading={salvandoImagens}
+                onFotoRemovida={handleFotoRemovida}
               />
             )}
           </TabsContent>

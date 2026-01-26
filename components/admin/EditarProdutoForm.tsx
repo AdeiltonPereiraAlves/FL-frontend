@@ -183,20 +183,24 @@ export function EditarProdutoForm({
               />
             </div>
 
-            {formData.perecivel && (
-              <div>
-                <Label htmlFor="validade">Data de Validade</Label>
-                <Input
-                  id="validade"
-                  type="date"
-                  value={formData.validade}
-                  onChange={(e) =>
-                    setFormData({ ...formData, validade: e.target.value })
-                  }
-                  className="mt-1"
-                />
-              </div>
-            )}
+            <div>
+              <Label htmlFor="validade">Data de Validade</Label>
+              <Input
+                id="validade"
+                type="date"
+                value={formData.validade}
+                onChange={(e) =>
+                  setFormData({ ...formData, validade: e.target.value })
+                }
+                className="mt-1"
+                placeholder="Selecione a data de validade"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.perecivel 
+                  ? 'Produto perecível - informe a data de validade'
+                  : 'Data de validade opcional (não é perecível)'}
+              </p>
+            </div>
           </div>
 
           {/* Botões */}

@@ -89,11 +89,14 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
   const handleAdicionarAoCarrinho = () => {
     if (!produto) return
     
+    // MVP: Usar precoAtual como preço principal
+    const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+    
     for (let i = 0; i < quantidade; i++) {
       adicionar({
         id: produto.id,
         nome: produto.nome,
-        precoFinal: produto.precoFinal,
+        precoFinal: precoAtual,
         entidade: {
           id: produto.entidade.id,
           nome: produto.entidade.nome,

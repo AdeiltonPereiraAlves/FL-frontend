@@ -14,11 +14,16 @@ export function PopupProdutoMapa({
 }) {
   const { adicionar } = useCart()
 
+  // MVP: Usar precoAtual como preço principal
+  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+  const precoAntigo = produto.precoAntigo
+  const emPromocao = produto.emPromocao || (!!precoAntigo && !!precoAtual)
+
   function handleAdd() {
     adicionar({
       id: produto.id,
       nome: produto.nome,
-      precoFinal: produto.precoFinal,
+      precoFinal: precoAtual,
       entidade: produto.entidade,
     })
   }
@@ -39,11 +44,11 @@ export function PopupProdutoMapa({
 
       {/* Preços */}
       <div className="space-y-1">
-        {produto.emPromocao && produto.precoNormal ? (
+        {emPromocao && precoAntigo ? (
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400 line-through">
-                R$ {produto.precoNormal.toFixed(2)}
+                R$ {precoAntigo.toFixed(2)}
               </span>
               <span className="px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded">
                 PROMOÇÃO
@@ -54,7 +59,7 @@ export function PopupProdutoMapa({
                 ? 'text-green-600' 
                 : 'text-[#16A34A]'
             }`}>
-              R$ {produto.precoPromo?.toFixed(2) || produto.precoFinal?.toFixed(2)}
+              R$ {precoAtual.toFixed(2)}
             </p>
           </div>
         ) : (
@@ -63,7 +68,7 @@ export function PopupProdutoMapa({
               ? 'text-green-600' 
               : 'text-[#16A34A]'
           }`}>
-            R$ {produto.precoFinal?.toFixed(2) || 'N/A'}
+            R$ {precoAtual.toFixed(2) || 'N/A'}
           </p>
         )}
         {isDestaque && (

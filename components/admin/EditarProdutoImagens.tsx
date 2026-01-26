@@ -9,6 +9,7 @@ import { ImageIcon, Upload, CheckCircle2, AlertCircle, FileImage, Pencil, Trash2
 import Image from 'next/image'
 import { useImageUpload } from '@/utils/uploadImage'
 import { useToast } from '@/hooks/use-toast'
+import { useApiContext } from '@/contexts/ApiContext'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 
@@ -16,6 +17,7 @@ interface EditarProdutoImagensProps {
   produto: any
   onSave: (fotos: any[]) => Promise<void>
   isLoading?: boolean
+  onFotoRemovida?: () => Promise<void> // Callback opcional para recarregar após remoção
 }
 
 /**
@@ -27,6 +29,7 @@ export function EditarProdutoImagens({
   produto,
   onSave,
   isLoading = false,
+  onFotoRemovida,
 }: EditarProdutoImagensProps) {
   const [fotos, setFotos] = useState<any[]>([])
   const [imagensSelecionadas, setImagensSelecionadas] = useState<File[]>([])
@@ -35,7 +38,7 @@ export function EditarProdutoImagens({
   const [fotoEditando, setFotoEditando] = useState<number | null>(null)
   const [fotoEditandoUrl, setFotoEditandoUrl] = useState('')
   const [novaFotoUrl, setNovaFotoUrl] = useState('')
-  const [fotoParaRemover, setFotoParaRemover] = useState<number | null>(null)
+  const [fotoParaRemover, setFotoParaRemover] = useState<string | null>(null) // Usa URL como identificador único (IDs do banco mudam a cada salvamento)
   const [removendoFoto, setRemovendoFoto] = useState(false)
   const [confirmandoSalvar, setConfirmandoSalvar] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -45,6 +48,7 @@ export function EditarProdutoImagens({
   
   const { uploadMultiple } = useImageUpload()
   const { toast } = useToast()
+  const api = useApiContext()
 
   // Sincronizar fotos quando produto mudar
   useEffect(() => {
@@ -54,14 +58,18 @@ export function EditarProdutoImagens({
     console.log('🖼️ [EditarProdutoImagens] É array?', Array.isArray(produto?.fotos))
     
     if (produto?.fotos) {
-      // Garantir que fotos seja um array e adicionar ID temporário se não existir
+      // Garantir que fotos seja um array
+      // IMPORTANTE: O backend agora preserva IDs (atualização incremental), então podemos usar o ID do banco
+      // Mas mantemos a URL como fallback para garantir compatibilidade
       const fotosArray = Array.isArray(produto.fotos) ? produto.fotos.map((foto: any, index: number) => ({
         ...foto,
-        // Usar ID do banco se existir, senão criar um temporário baseado na URL
-        id: foto.id || `temp-${foto.url}-${index}`,
+        // Usar ID do banco se existir (agora preservado), senão usar URL como fallback
+        id: foto.id || foto.url, // ID do banco é preservado agora, URL como fallback
+        _indexOriginal: index,
       })) : []
       console.log('🖼️ [EditarProdutoImagens] Atualizando lista de fotos:', fotosArray.length, 'imagens')
       console.log('🖼️ [EditarProdutoImagens] URLs das fotos:', fotosArray.map((f: any) => f.url))
+      console.log('🖼️ [EditarProdutoImagens] IDs das fotos:', fotosArray.map((f: any) => f.id))
       
       // Atualizar lista de fotos
       setFotos(fotosArray)
@@ -451,51 +459,73 @@ export function EditarProdutoImagens({
     await salvarAlteracoes()
   }
 
-  const confirmarRemoverFoto = (index: number) => {
-    setFotoParaRemover(index)
+  const confirmarRemoverFoto = (fotoId: string) => {
+    setFotoParaRemover(fotoId)
   }
 
+  /**
+   * Remove UMA foto específica usando o endpoint DELETE individual
+   * IMPORTANTE: Usa endpoint específico para deletar apenas uma foto, não todas
+   */
   const removerFoto = async () => {
-    if (fotoParaRemover === null) return
+    if (fotoParaRemover === null || !produto?.id) return
 
-    const index = fotoParaRemover
     setRemovendoFoto(true)
     
     try {
-      console.log('🗑️ Removendo foto no índice:', index, 'Total de fotos:', fotos.length)
+      console.log('🗑️ [removerFoto] ===== INICIANDO REMOÇÃO INDIVIDUAL =====')
+      console.log('🗑️ [removerFoto] Produto ID:', produto.id)
+      console.log('🗑️ [removerFoto] Foto ID a remover:', fotoParaRemover)
+      console.log('🗑️ [removerFoto] Total de fotos antes:', fotos.length)
       
-      // Criar nova lista SEM a foto removida
-      const novasFotos = fotos.filter((_, i) => i !== index)
+      // Encontrar a foto a ser removida pelo ID
+      const fotoParaRemoverObj = fotos.find(f => f.id === fotoParaRemover || f.url === fotoParaRemover)
       
-      console.log('🗑️ Fotos após remoção:', novasFotos.length)
+      if (!fotoParaRemoverObj || !fotoParaRemoverObj.id) {
+        console.error('❌ [removerFoto] Foto não encontrada ou sem ID válido')
+        toast({
+          title: 'Erro ao remover imagem',
+          description: 'Foto não encontrada ou sem ID válido.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const fotoId = fotoParaRemoverObj.id
+      console.log('🗑️ [removerFoto] Foto encontrada:', { id: fotoId, url: fotoParaRemoverObj.url })
+      
+      // Chamar endpoint DELETE específico para remover apenas esta foto
+      // Endpoint: DELETE /produto/:produtoId/foto/:fotoId
+      await api.delete(`/produto/${produto.id}/foto/${fotoId}`)
+      
+      console.log('✅ [removerFoto] Foto removida com sucesso do backend')
+      
+      // Remover da lista local imediatamente (otimista)
+      const novasFotos = fotos.filter(f => f.id !== fotoId)
       
       // Se a foto removida era a destacada e ainda há fotos, destacar a primeira
-      if (fotos[index]?.destaque && novasFotos.length > 0) {
+      if (fotoParaRemoverObj.destaque && novasFotos.length > 0) {
         novasFotos[0].destaque = true
+        console.log('✅ [removerFoto] Primeira foto definida como destaque')
       }
       
       setFotos(novasFotos)
       setFotoParaRemover(null)
       
-      // Salvar alterações automaticamente - ENVIA TODAS AS FOTOS RESTANTES
-      const fotosParaEnviar = novasFotos.map((foto, idx) => ({
-        url: foto.url,
-        destaque: foto.destaque || false,
-        ordem: foto.ordem ?? idx,
-      }))
-      
-      console.log('💾 Salvando fotos após remoção:', fotosParaEnviar.length, 'imagens')
-      await onSave(fotosParaEnviar)
+      // Recarregar dados do produto para garantir sincronização
+      if (onFotoRemovida) {
+        await onFotoRemovida()
+      }
       
       toast({
         title: '✅ Imagem removida!',
         description: 'A imagem foi removida com sucesso.',
       })
-    } catch (error) {
-      console.error('Erro ao remover foto:', error)
+    } catch (error: any) {
+      console.error('❌ [removerFoto] Erro ao remover foto:', error)
       toast({
         title: 'Erro ao remover imagem',
-        description: 'Não foi possível remover a imagem.',
+        description: error.message || 'Não foi possível remover a imagem.',
         variant: 'destructive',
       })
     } finally {
@@ -588,8 +618,8 @@ export function EditarProdutoImagens({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {fotos.map((foto, index) => {
-                  // Usar ID único para cada foto (ID do banco ou URL + índice)
-                  const fotoKey = foto.id || `foto-${foto.url}-${index}`
+                  // IMPORTANTE: Usar ID do banco como key (agora preservado), URL como fallback
+                  const fotoKey = foto.id || foto.url
                   return (
                   <div key={fotoKey} className="relative group">
                     <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700">
@@ -633,7 +663,13 @@ export function EditarProdutoImagens({
                           variant="destructive"
                           onClick={(e) => {
                             e.stopPropagation()
-                            confirmarRemoverFoto(index)
+                            // IMPORTANTE: Usar ID do banco (agora preservado), URL como fallback
+                            const fotoId = foto.id || foto.url
+                            console.log('🗑️ [onClick] Botão de remover clicado. Foto ID:', fotoId, 'Index:', index, 'URL:', foto.url)
+                            if (!fotoId) {
+                              console.error('❌ [onClick] Foto sem ID nem URL! Index:', index)
+                            }
+                            confirmarRemoverFoto(fotoId)
                           }}
                           className="h-8 w-8 p-0"
                           title="Excluir imagem"
@@ -675,7 +711,13 @@ export function EditarProdutoImagens({
                         variant="destructive"
                         onClick={(e) => {
                           e.stopPropagation()
-                          confirmarRemoverFoto(index)
+                          // IMPORTANTE: Usar o ID exato da foto (já definido no useEffect)
+                          const fotoId = foto.id
+                          console.log('🗑️ [onClick] Botão de remover clicado (mobile). Foto ID:', fotoId, 'Index:', index, 'URL:', foto.url)
+                          if (!fotoId) {
+                            console.error('❌ [onClick] Foto sem ID! Index:', index, 'URL:', foto.url)
+                          }
+                          confirmarRemoverFoto(fotoId)
                         }}
                         className="px-2"
                         disabled={removendoFoto}
@@ -1009,16 +1051,20 @@ export function EditarProdutoImagens({
                   Tem certeza que deseja remover esta imagem? Esta ação não pode ser desfeita.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              {fotoParaRemover !== null && fotos[fotoParaRemover] && (
-                <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 my-4">
-                  <Image
-                    src={fotos[fotoParaRemover].url}
-                    alt="Imagem a ser removida"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              )}
+              {fotoParaRemover !== null && (() => {
+                // Encontrar a foto pelo ID ou URL (compatibilidade)
+                const fotoParaRemoverObj = fotos.find(f => f.id === fotoParaRemover || f.url === fotoParaRemover)
+                return fotoParaRemoverObj ? (
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 my-4">
+                    <Image
+                      src={fotoParaRemoverObj.url}
+                      alt="Imagem a ser removida"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : null
+              })()}
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={removendoFoto}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction

@@ -5,7 +5,7 @@ import { Header } from '@/components/Header'
 import { useEntidades } from '@/hooks/useEntidades'
 import { useApiContext } from '@/contexts/ApiContext'
 import { Button } from '@/components/ui/button'
-import { Store, MapPin, Phone, Mail, MessageSquare, Package, ChevronLeft, ChevronRight, ArrowLeft, Edit, X, Save, Eye } from 'lucide-react'
+import { Store, MapPin, Phone, Mail, MessageSquare, Package, ChevronLeft, ChevronRight, ArrowLeft, Edit, X, Save } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
@@ -143,7 +143,7 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     adicionar({
       id: produto.id,
       nome: produto.nome,
-      precoFinal: produto.precoFinal,
+      precoFinal: produto.precoAtual || produto.precoFinal || produto.precoNormal || 0,
       entidade: {
         id: entidade.id,
         nome: entidade.nome,
@@ -440,10 +440,11 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
               /* Lista de Produtos para Admin/Dono do Sistema */
               <div className="space-y-4">
                 {produtos.map((produto) => {
-                  const precoNormal = produto.precoNormal || produto.precoFinal
-                  const precoPromo = produto.precoPromo
-                  const emPromocao = produto.emPromocao && precoPromo
-                  const precoFinal = emPromocao ? precoPromo : precoNormal
+                  // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
+                  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal
+                  const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
+                  const emPromocao = produto.emPromocao || (!!produto.precoPromo && !!precoAntigo)
+                  const precoFinal = precoAtual // precoAtual já é o preço promocional se houver
                   const isEditando = produtoEditandoInline === produto.id
 
                   return (
@@ -485,13 +486,13 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
                               {produto.nome}
                             </h3>
                             <div className="flex items-center gap-2 mb-2">
-                              {emPromocao ? (
+                              {emPromocao && precoAntigo ? (
                                 <>
                                   <span className="text-sm text-gray-400 line-through">
-                                    R$ {precoNormal?.toFixed(2)}
+                                    R$ {precoAntigo.toFixed(2)}
                                   </span>
                                   <span className="text-lg font-bold text-[#16A34A]">
-                                    R$ {precoPromo?.toFixed(2)}
+                                    R$ {precoAtual.toFixed(2)}
                                   </span>
                                 </>
                               ) : (
@@ -510,16 +511,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
                           {/* Botões de Ação */}
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <Button
-                              asChild
-                              variant="outline"
-                              size="sm"
-                            >
-                              <Link href={`/produto/${produto.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Ver Produto
-                              </Link>
-                            </Button>
-                            <Button
                               className="bg-yellow-600 hover:bg-yellow-700 text-white"
                               size="sm"
                               onClick={() => {
@@ -529,17 +520,12 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
                                   setProdutoEditandoInline(produto.id)
                                 }
                               }}
+                              title={produtoEditandoInline === produto.id ? "Cancelar edição" : "Editar produto"}
                             >
                               {produtoEditandoInline === produto.id ? (
-                                <span className="flex items-center">
-                                  <X className="h-4 w-4 mr-2" />
-                                  Cancelar
-                                </span>
+                                <X className="h-4 w-4" />
                               ) : (
-                                <span className="flex items-center">
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Editar
-                                </span>
+                                <Edit className="h-4 w-4" />
                               )}
                             </Button>
                           </div>
@@ -553,10 +539,11 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
               /* Grade de Produtos para Visitantes/Clientes/Lojistas */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {produtos.map((produto) => {
-                  const precoNormal = produto.precoNormal || produto.precoFinal
-                  const precoPromo = produto.precoPromo
-                  const emPromocao = produto.emPromocao && precoPromo
-                  const precoFinal = emPromocao ? precoPromo : precoNormal
+                  // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
+                  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal
+                  const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
+                  const emPromocao = produto.emPromocao || (!!produto.precoPromo && !!precoAntigo)
+                  const precoFinal = precoAtual // precoAtual já é o preço promocional se houver
 
                   return (
                     <div
@@ -611,15 +598,15 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
                         {/* Preços */}
                         <div className="mb-3">
-                          {emPromocao ? (
+                          {emPromocao && precoAntigo ? (
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-400 line-through">
-                                  R$ {precoNormal?.toFixed(2)}
+                                  R$ {precoAntigo.toFixed(2)}
                                 </span>
                               </div>
                               <p className="text-xl font-bold text-[#16A34A]">
-                                R$ {precoPromo?.toFixed(2)}
+                                R$ {precoAtual.toFixed(2)}
                               </p>
                             </div>
                           ) : (

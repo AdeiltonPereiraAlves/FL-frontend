@@ -44,20 +44,24 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
   }
 
   const handleAdicionar = () => {
+    // MVP: Usar precoAtual como preço principal
+    const precoAtualParaCarrinho = precoAtual || 0
+    
     for (let i = 0; i < quantidade; i++) {
       adicionar({
         id: produto.id,
         nome: produto.nome,
-        precoFinal: produto.precoFinal,
+        precoFinal: precoAtualParaCarrinho,
         entidade: produto.entidade,
       })
     }
   }
 
-  const precoNormal = produto.precoNormal || produto.precoFinal
-  const precoPromo = produto.precoPromo || null
-  const emPromocao = produto.emPromocao && precoPromo
-  const precoFinal = emPromocao ? precoPromo : precoNormal
+  // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
+  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+  const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
+  const emPromocao = produto.emPromocao || (!!precoAntigo && !!precoAtual)
+  const precoFinal = precoAtual // precoAtual já é o preço promocional se houver
 
   // Cupons ativos e válidos
   const cuponsValidos = produto.cupons?.filter((cupom: any) => {
@@ -114,24 +118,19 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
 
         {/* Preços - Destaque */}
         <div className="space-y-2">
-          {emPromocao ? (
+          {emPromocao && precoAntigo ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-lg text-gray-400 line-through">
-                  R$ {precoNormal?.toFixed(2)}
+                  R$ {precoAntigo.toFixed(2)}
                 </span>
                 <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">
                   PROMOÇÃO
                 </span>
               </div>
               <p className="text-3xl font-bold text-[#16A34A]">
-                R$ {precoPromo?.toFixed(2)}
+                R$ {precoAtual.toFixed(2)}
               </p>
-              {produto.variacoes?.[0]?.descontoPerc && (
-                <p className="text-sm text-green-600 font-semibold">
-                  {produto.variacoes[0].descontoPerc}% de desconto
-                </p>
-              )}
             </div>
           ) : (
             <p className="text-3xl font-bold text-[#16A34A]">

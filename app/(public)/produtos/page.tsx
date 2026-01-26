@@ -131,10 +131,13 @@ export default function ProdutosPage() {
   }, [page, listarTodosProdutos, searchQuery])
 
   const handleAdicionarAoCarrinho = (produto: any) => {
+    // MVP: Usar precoAtual como preço principal
+    const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+    
     adicionar({
       id: produto.id,
       nome: produto.nome,
-      precoFinal: produto.precoFinal,
+      precoFinal: precoAtual,
       entidade: {
         id: produto.entidade.id,
         nome: produto.entidade.nome,
@@ -227,9 +230,11 @@ export default function ProdutosPage() {
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
               {produtos.map((produto) => {
-                const precoFinal = produto.precoFinal || 0
-                const emPromocao = produto.emPromocao && produto.precoPromo
-                const precoExibido = emPromocao ? produto.precoPromo : precoFinal
+                // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
+                const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+                const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
+                const emPromocao = produto.emPromocao || (!!precoAntigo && !!precoAtual)
+                const precoExibido = precoAtual
 
                 return (
                   <div
@@ -305,15 +310,15 @@ export default function ProdutosPage() {
 
                       {/* Preços */}
                       <div className="mb-4">
-                        {emPromocao ? (
+                        {emPromocao && precoAntigo ? (
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-gray-400 line-through">
-                                R$ {produto.precoNormal?.toFixed(2)}
+                                R$ {precoAntigo.toFixed(2)}
                               </span>
                             </div>
                             <p className="text-2xl font-bold text-[#16A34A]">
-                              R$ {produto.precoPromo?.toFixed(2)}
+                              R$ {precoAtual.toFixed(2)}
                             </p>
                           </div>
                         ) : (
