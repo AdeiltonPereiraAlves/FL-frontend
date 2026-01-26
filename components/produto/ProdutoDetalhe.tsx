@@ -44,24 +44,23 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
   }
 
   const handleAdicionar = () => {
-    // MVP: Usar precoAtual como preço principal
-    const precoAtualParaCarrinho = precoAtual || 0
-    
+    // MVP: Usar precoFinal (promoção se houver, senão precoAtual)
     for (let i = 0; i < quantidade; i++) {
       adicionar({
         id: produto.id,
         nome: produto.nome,
-        precoFinal: precoAtualParaCarrinho,
+        precoFinal: precoFinal,
         entidade: produto.entidade,
       })
     }
   }
 
-  // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
+  // MVP: Usar campos diretos do produto
   const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
-  const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
-  const emPromocao = produto.emPromocao || (!!precoAntigo && !!precoAtual)
-  const precoFinal = precoAtual // precoAtual já é o preço promocional se houver
+  const precoDesconto = produto.precoDesconto || produto.precoPromo || null
+  const emPromocao = produto.emPromocao && precoDesconto !== null
+  const precoAntigo = emPromocao ? precoAtual : null
+  const precoFinal = emPromocao ? precoDesconto : precoAtual
 
   // Cupons ativos e válidos
   const cuponsValidos = produto.cupons?.filter((cupom: any) => {
@@ -129,7 +128,7 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
                 </span>
               </div>
               <p className="text-3xl font-bold text-[#16A34A]">
-                R$ {precoAtual.toFixed(2)}
+                R$ {precoFinal.toFixed(2)}
               </p>
             </div>
           ) : (

@@ -50,43 +50,31 @@ export function EditarProdutoImagens({
   const { toast } = useToast()
   const api = useApiContext()
 
-  // Sincronizar fotos quando produto mudar
+  // Sincronizar fotos quando produto mudar (apenas quando ID mudar para evitar loops)
   useEffect(() => {
-    console.log('🖼️ [EditarProdutoImagens] Produto recebido:', produto)
-    console.log('🖼️ [EditarProdutoImagens] Fotos do produto:', produto?.fotos)
-    console.log('🖼️ [EditarProdutoImagens] Tipo de fotos:', typeof produto?.fotos)
-    console.log('🖼️ [EditarProdutoImagens] É array?', Array.isArray(produto?.fotos))
+    if (!produto?.id) {
+      setFotos([])
+      return
+    }
     
-    if (produto?.fotos) {
-      // Garantir que fotos seja um array
-      // IMPORTANTE: O backend agora preserva IDs (atualização incremental), então podemos usar o ID do banco
-      // Mas mantemos a URL como fallback para garantir compatibilidade
-      const fotosArray = Array.isArray(produto.fotos) ? produto.fotos.map((foto: any, index: number) => ({
+    if (produto?.fotos && Array.isArray(produto.fotos)) {
+      const fotosArray = produto.fotos.map((foto: any, index: number) => ({
         ...foto,
-        // Usar ID do banco se existir (agora preservado), senão usar URL como fallback
-        id: foto.id || foto.url, // ID do banco é preservado agora, URL como fallback
+        id: foto.id || foto.url,
         _indexOriginal: index,
-      })) : []
-      console.log('🖼️ [EditarProdutoImagens] Atualizando lista de fotos:', fotosArray.length, 'imagens')
-      console.log('🖼️ [EditarProdutoImagens] URLs das fotos:', fotosArray.map((f: any) => f.url))
-      console.log('🖼️ [EditarProdutoImagens] IDs das fotos:', fotosArray.map((f: any) => f.id))
+      }))
       
-      // Atualizar lista de fotos
       setFotos(fotosArray)
       
-      // Limpar previews quando produto for atualizado (após salvar)
-      // Isso garante que a lista seja atualizada automaticamente
+      // Limpar previews quando produto for atualizado
       setImagensSelecionadas([])
       setPreviews([])
       setImagemUnica(null)
       setPreviewUnica(null)
-      
-      console.log('✅ [EditarProdutoImagens] Preview limpo, lista de imagens atualizada automaticamente com', fotosArray.length, 'imagens')
     } else {
-      console.log('⚠️ [EditarProdutoImagens] Nenhuma foto encontrada no produto')
       setFotos([])
     }
-  }, [produto])
+  }, [produto?.id]) // Apenas quando o ID mudar, não quando produto inteiro mudar
 
   // Valida e processa arquivos selecionados (múltiplas imagens)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

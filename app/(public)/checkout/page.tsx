@@ -2,6 +2,7 @@
 
 import { Header } from '@/components/Header'
 import { useCart } from '@/contexts/CartContext'
+import { useApiContext } from '@/contexts/ApiContext'
 import { Button } from '@/components/ui/button'
 import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, FileText, AlertCircle, CheckCircle, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
@@ -24,6 +25,7 @@ import { Label } from '@/components/ui/label'
 export default function CheckoutPage() {
   const { carrinho, alterarQuantidade, remover, total, limpar } = useCart()
   const router = useRouter()
+  const api = useApiContext()
   
   // Página anterior para voltar dinamicamente
   const [paginaAnterior, setPaginaAnterior] = useState<string>('/')
@@ -355,13 +357,26 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
   }
 
   // Confirmar e redirecionar para WhatsApp
-  const confirmarCompraWhatsApp = () => {
+  const confirmarCompraWhatsApp = async () => {
     if (!lojaSelecionada) return
 
     const whatsapp = whatsappUrl({ entidade: lojaSelecionada.loja })
     if (!whatsapp) {
       alert('WhatsApp não disponível para esta loja')
       return
+    }
+
+    // Registrar lead ANTES de abrir WhatsApp (silenciosamente, sem bloquear UX)
+    try {
+      await api.post('/lead/registrar', {
+        entidadeId: lojaSelecionada.loja.id,
+        tipo: 'LISTA_WHATSAPP',
+        totalItens: lojaSelecionada.itens.length,
+        valorEstimado: lojaSelecionada.subtotal,
+      })
+    } catch (error) {
+      // Não bloquear o fluxo se o registro falhar
+      console.error('Erro ao registrar lead:', error)
     }
 
     const mensagem = gerarMensagemWhatsApp(lojaSelecionada)
@@ -399,7 +414,23 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
   }
 
   // Confirmar e abrir todos os WhatsApps
-  const confirmarCompraTodosWhatsApps = () => {
+  const confirmarCompraTodosWhatsApps = async () => {
+    // Registrar leads para todas as lojas (silenciosamente, sem bloquear UX)
+    const registrosLeads = lojasHabilitadas.map((grupo: any) =>
+      api.post('/lead/registrar', {
+        entidadeId: grupo.loja.id,
+        tipo: 'LISTA_WHATSAPP',
+        totalItens: grupo.itens.length,
+        valorEstimado: grupo.subtotal,
+      }).catch((error) => {
+        // Não bloquear o fluxo se o registro falhar
+        console.error('Erro ao registrar lead:', error)
+      })
+    )
+    
+    // Executar todos os registros em paralelo (não esperar)
+    Promise.all(registrosLeads).catch(() => {})
+
     lojasHabilitadas.forEach((grupo: any, index: number) => {
       const whatsapp = whatsappUrl({ entidade: grupo.loja })
       if (!whatsapp) return

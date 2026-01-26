@@ -143,7 +143,9 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     adicionar({
       id: produto.id,
       nome: produto.nome,
-      precoFinal: produto.precoAtual || produto.precoFinal || produto.precoNormal || 0,
+      precoFinal: produto.emPromocao && produto.precoDesconto 
+        ? produto.precoDesconto 
+        : (produto.precoAtual || produto.precoFinal || produto.precoNormal || 0),
       entidade: {
         id: entidade.id,
         nome: entidade.nome,
@@ -440,11 +442,12 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
               /* Lista de Produtos para Admin/Dono do Sistema */
               <div className="space-y-4">
                 {produtos.map((produto) => {
-                  // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
-                  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal
-                  const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
-                  const emPromocao = produto.emPromocao || (!!produto.precoPromo && !!precoAntigo)
-                  const precoFinal = precoAtual // precoAtual já é o preço promocional se houver
+                  // MVP: Usar campos diretos do produto
+                  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+                  const precoDesconto = produto.precoDesconto || produto.precoPromo || null
+                  const emPromocao = produto.emPromocao && precoDesconto !== null
+                  const precoAntigo = emPromocao ? precoAtual : null
+                  const precoFinal = emPromocao ? precoDesconto : precoAtual
                   const isEditando = produtoEditandoInline === produto.id
 
                   return (
@@ -492,7 +495,7 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
                                     R$ {precoAntigo.toFixed(2)}
                                   </span>
                                   <span className="text-lg font-bold text-[#16A34A]">
-                                    R$ {precoAtual.toFixed(2)}
+                                    R$ {precoFinal.toFixed(2)}
                                   </span>
                                 </>
                               ) : (
@@ -539,11 +542,12 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
               /* Grade de Produtos para Visitantes/Clientes/Lojistas */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {produtos.map((produto) => {
-                  // MVP: Usar precoAtual e precoAntigo do ProdutoPrecoHistorico
-                  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal
-                  const precoAntigo = produto.precoAntigo || (produto.emPromocao ? produto.precoNormal : null)
-                  const emPromocao = produto.emPromocao || (!!produto.precoPromo && !!precoAntigo)
-                  const precoFinal = precoAtual // precoAtual já é o preço promocional se houver
+                  // MVP: Usar campos diretos do produto
+                  const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
+                  const precoDesconto = produto.precoDesconto || produto.precoPromo || null
+                  const emPromocao = produto.emPromocao && precoDesconto !== null
+                  const precoAntigo = emPromocao ? precoAtual : null
+                  const precoFinal = emPromocao ? precoDesconto : precoAtual
 
                   return (
                     <div

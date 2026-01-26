@@ -73,125 +73,74 @@ export function EditarProdutoInformacoes({
     carregarCategorias()
   }, [api])
 
-  // Carregar atributos separadamente se não vierem no produto
+  // Inicializar dados do produto quando mudar (apenas quando ID mudar para evitar loops)
   useEffect(() => {
-    async function carregarAtributos() {
-      if (!produto?.id) return
-      
-      // Se não há atributos ou se o array está vazio, tentar carregar separadamente
-      if (!produto.atributos || produto.atributos.length === 0) {
+    if (!produto?.id) return
+
+    // Calcular preços corretamente
+    const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || ''
+    const precoPromo = produto.emPromocao && produto.precoAntigo 
+      ? produto.precoAtual
+      : (produto.precoPromo || '')
+    const precoNormalParaEdicao = produto.emPromocao && produto.precoAntigo
+      ? produto.precoAntigo
+      : precoAtual
+
+    // Atualizar formData quando produto mudar
+    setFormData({
+      nome: produto.nome || '',
+      descricao: produto.descricao || '',
+      sku: produto.sku || '',
+      visivel: produto.visivel ?? true,
+      ativo: produto.ativo ?? true,
+      destaque: produto.destaque ?? false,
+      perecivel: produto.perecivel ?? false,
+      peso: produto.peso || '',
+      validade: produto.validade
+        ? new Date(produto.validade).toISOString().split('T')[0]
+        : '',
+      largura: produto.largura || '',
+      altura: produto.altura || '',
+      profundidade: produto.profundidade || '',
+      dimensoesStr: produto.dimensoesStr || '',
+      categoriaId: produto.categoriaId || null,
+      preco: precoNormalParaEdicao,
+      precoPromo: precoPromo || '',
+      estoque: produto.estoque || 0,
+    })
+
+    // Carregar tags se existirem
+    if (produto.tags && Array.isArray(produto.tags)) {
+      setTags(produto.tags.map((t: any) => t.tag?.nome || t.nome || '').filter(Boolean))
+    }
+
+    // Carregar atributos se existirem
+    if (produto.atributos && Array.isArray(produto.atributos) && produto.atributos.length > 0) {
+      setAtributos(produto.atributos.map((a: any) => ({
+        chave: a.chave || '',
+        valor: a.valor || '',
+        id: a.id || null,
+      })))
+    } else {
+      // Tentar carregar atributos separadamente apenas uma vez
+      const carregarAtributos = async () => {
         try {
-          console.log('📦 [EditarProdutoInformacoes] Carregando atributos separadamente...')
           const data = await api.get(`/produto/${produto.id}/atributos`) as { atributos?: Array<{ id?: string; chave: string; valor: string }> }
-          console.log('📦 [EditarProdutoInformacoes] Atributos carregados separadamente:', data?.atributos)
-          
           if (data?.atributos && data.atributos.length > 0) {
-            const atributosProcessados = data.atributos.map((a: any) => ({
+            setAtributos(data.atributos.map((a: any) => ({
               chave: a.chave || '',
               valor: a.valor || '',
               id: a.id || null,
-            }))
-            setAtributos(atributosProcessados)
-            console.log('📦 [EditarProdutoInformacoes] Atributos processados e definidos:', atributosProcessados)
+            })))
           }
         } catch (error) {
-          console.error('Erro ao carregar atributos separadamente:', error)
           // Não é crítico, pode não ter atributos
         }
       }
+      carregarAtributos()
     }
-    carregarAtributos()
-  }, [produto?.id, api])
+  }, [produto?.id, api]) // Apenas quando o ID mudar
 
-  // Sincronizar dados quando produto mudar
-  useEffect(() => {
-    if (produto) {
-      console.log('📦 [EditarProdutoInformacoes] Produto recebido:', produto)
-      console.log('📦 [EditarProdutoInformacoes] Atributos recebidos:', produto.atributos)
-      console.log('📦 [EditarProdutoInformacoes] Tags recebidas:', produto.tags)
-      console.log('💰 [EditarProdutoInformacoes] Preços recebidos:', {
-        precoAtual: produto.precoAtual,
-        precoAntigo: produto.precoAntigo,
-        precoPromo: produto.precoPromo,
-        emPromocao: produto.emPromocao,
-      })
-      
-      // MVP: Incluir preços do ProdutoPrecoHistorico (não variações)
-      // Se está em promoção, precoAtual é o promocional e precoAntigo é o normal
-      // Se não está em promoção, precoAtual é o normal e precoAntigo é null
-      const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || ''
-      const precoPromo = produto.emPromocao && produto.precoAntigo 
-        ? produto.precoAtual // Se está em promoção, o precoAtual já é o promocional
-        : (produto.precoPromo || '') // Caso contrário, usa precoPromo se existir
-      const precoNormalParaEdicao = produto.emPromocao && produto.precoAntigo
-        ? produto.precoAntigo // Se está em promoção, o precoAntigo é o preço normal
-        : precoAtual // Caso contrário, o precoAtual é o normal
-      const estoque = produto.estoque || 0
-      
-      console.log('💰 [EditarProdutoInformacoes] Cálculo de preços para edição:', {
-        precoAtual: produto.precoAtual,
-        precoAntigo: produto.precoAntigo,
-        precoNormal: produto.precoNormal,
-        precoPromo: produto.precoPromo,
-        emPromocao: produto.emPromocao,
-        precoNormalParaEdicao,
-        precoPromoParaEdicao: precoPromo,
-      })
-      
-      setFormData({
-        nome: produto.nome || '',
-        descricao: produto.descricao || '',
-        sku: produto.sku || '',
-        visivel: produto.visivel ?? true,
-        ativo: produto.ativo ?? true,
-        destaque: produto.destaque ?? false,
-        perecivel: produto.perecivel ?? false,
-        peso: produto.peso || '',
-        validade: produto.validade
-          ? new Date(produto.validade).toISOString().split('T')[0]
-          : '',
-        largura: produto.largura || '',
-        altura: produto.altura || '',
-        profundidade: produto.profundidade || '',
-        dimensoesStr: produto.dimensoesStr || '',
-        categoriaId: produto.categoriaId || null,
-        // MVP: Preços baseados em ProdutoPrecoHistorico
-        // preco = preço normal (sempre)
-        // precoPromo = preço promocional (opcional)
-        preco: precoNormalParaEdicao,
-        precoPromo: precoPromo || '',
-        estoque: estoque,
-      })
-      
-      console.log('💰 [EditarProdutoInformacoes] Preços carregados:', { precoAtual, precoPromo, estoque })
-      
-      // Processar tags
-      const tagsProcessadas = produto.tags?.map((t: any) => {
-        // Pode vir como objeto com tag.nome ou diretamente como string
-        return typeof t === 'string' ? t : (t.tag?.nome || t.nome || '')
-      }).filter(Boolean) || []
-      console.log('📦 [EditarProdutoInformacoes] Tags processadas:', tagsProcessadas)
-      setTags(tagsProcessadas)
-      
-      // Processar atributos
-      // IMPORTANTE: Não filtrar aqui - mostrar todos os atributos, mesmo vazios
-      // O filtro será feito apenas no momento de salvar
-      const atributosProcessados = produto.atributos?.map((a: any) => {
-        // Pode vir como objeto direto ou com estrutura aninhada
-        if (typeof a === 'object' && a !== null) {
-          return {
-            chave: a.chave || '',
-            valor: a.valor || '',
-            id: a.id || null, // Manter ID se existir para referência
-          }
-        }
-        return { chave: '', valor: '', id: null }
-      }) || []
-      console.log('📦 [EditarProdutoInformacoes] Atributos processados:', atributosProcessados.length, atributosProcessados)
-      console.log('📦 [EditarProdutoInformacoes] Detalhes dos atributos:', JSON.stringify(atributosProcessados, null, 2))
-      setAtributos(atributosProcessados)
-    }
-  }, [produto])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

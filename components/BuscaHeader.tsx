@@ -95,11 +95,19 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
                 }}
               >
                 <option value="">Cidade</option>
-                {cidadesApi.data?.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome} - {c.estado}
-                  </option>
-                ))}
+                {cidadesApi.data
+                  ?.filter((c: any, index: number, self: any[]) => 
+                    // Remover duplicatas baseado em nome + estado
+                    index === self.findIndex((ci: any) => 
+                      ci.nome.toLowerCase() === c.nome.toLowerCase() && 
+                      ci.estado === c.estado
+                    )
+                  )
+                  .map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome} - {c.estado}
+                    </option>
+                  ))}
               </select>
             )}
           </>

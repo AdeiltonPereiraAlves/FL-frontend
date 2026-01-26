@@ -38,6 +38,9 @@ export function EditarProdutoFormCompleto({
     nome: produto?.nome || '',
     descricao: produto?.descricao || '',
     sku: produto?.sku || '',
+    marca: produto?.marca || '',
+    modelo: produto?.modelo || '',
+    tipo: produto?.tipo || '',
     visivel: produto?.visivel ?? true,
     ativo: produto?.ativo ?? true,
     destaque: produto?.destaque ?? false,
@@ -51,6 +54,13 @@ export function EditarProdutoFormCompleto({
     profundidade: produto?.profundidade || '',
     dimensoesStr: produto?.dimensoesStr || '',
     categoriaId: produto?.categoriaId || '',
+    // MVP: Preços diretos no produto (simplificado)
+    precoAtual: produto?.precoAtual || produto?.precoNormal || produto?.precoFinal || '',
+    precoDesconto: produto?.precoDesconto || produto?.precoPromo || '',
+    emPromocao: produto?.emPromocao ?? false,
+    // Compatibilidade: manter campos antigos para transição
+    preco: produto?.precoAtual || produto?.precoNormal || produto?.precoFinal || '',
+    precoPromo: produto?.precoDesconto || produto?.precoPromo || '',
   })
 
   // Estados para imagens, variações, tags e atributos
@@ -88,46 +98,148 @@ export function EditarProdutoFormCompleto({
     carregarCategorias()
   }, [api])
 
+  // Inicializar dados quando produto mudar (apenas quando ID mudar para evitar loops)
+  useEffect(() => {
+    if (!produto) {
+      // Resetar para valores padrão se produto for null (criação)
+      setFormData({
+        nome: '',
+        descricao: '',
+        sku: '',
+        marca: '',
+        modelo: '',
+        tipo: '',
+        visivel: true,
+        ativo: true,
+        destaque: false,
+        perecivel: false,
+        peso: '',
+        validade: '',
+        largura: '',
+        altura: '',
+        profundidade: '',
+        dimensoesStr: '',
+        categoriaId: '',
+        precoAtual: '',
+        precoDesconto: '',
+        emPromocao: false,
+        preco: '',
+        precoPromo: '',
+      })
+      setFotos([])
+      setTags([])
+      setAtributos([])
+      setVariacoes([])
+      return
+    }
+
+    // MVP: Usar campos diretos do produto
+    const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || ''
+    const precoDesconto = produto.precoDesconto || produto.precoPromo || ''
+    const emPromocao = produto.emPromocao ?? false
+
+    // Atualizar formData quando produto mudar
+    setFormData({
+      nome: produto.nome || '',
+      descricao: produto.descricao || '',
+      sku: produto.sku || '',
+      marca: produto.marca || '',
+      modelo: produto.modelo || '',
+      tipo: produto.tipo || '',
+      visivel: produto.visivel ?? true,
+      ativo: produto.ativo ?? true,
+      destaque: produto.destaque ?? false,
+      perecivel: produto.perecivel ?? false,
+      peso: produto.peso || '',
+      validade: produto.validade
+        ? new Date(produto.validade).toISOString().split('T')[0]
+        : '',
+      largura: produto.largura || '',
+      altura: produto.altura || '',
+      profundidade: produto.profundidade || '',
+      dimensoesStr: produto.dimensoesStr || '',
+      categoriaId: produto.categoriaId || '',
+      precoAtual: precoAtual,
+      precoDesconto: precoDesconto,
+      emPromocao: emPromocao,
+      // Compatibilidade
+      preco: precoAtual,
+      precoPromo: precoDesconto,
+    })
+
+    // Carregar fotos
+    if (produto.fotos && Array.isArray(produto.fotos)) {
+      setFotos(produto.fotos.map((foto: any, index: number) => ({
+        ...foto,
+        ordem: foto.ordem ?? index,
+      })))
+    } else {
+      setFotos([])
+    }
+
+    // Carregar tags
+    if (produto.tags && Array.isArray(produto.tags)) {
+      setTags(produto.tags.map((t: any) => t.tag?.nome || t.nome || '').filter(Boolean))
+    } else {
+      setTags([])
+    }
+
+    // Carregar atributos
+    if (produto.atributos && Array.isArray(produto.atributos)) {
+      setAtributos(produto.atributos.map((a: any) => ({
+        chave: a.chave || '',
+        valor: a.valor || '',
+      })))
+    } else {
+      setAtributos([])
+    }
+
+    // Carregar variações
+    if (produto.variacoes && Array.isArray(produto.variacoes)) {
+      setVariacoes(produto.variacoes)
+    } else {
+      setVariacoes([])
+    }
+  }, [produto?.id]) // Apenas quando o ID mudar
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Se houver imagens selecionadas, fazer upload primeiro
-    if (imagensSelecionadas.length > 0) {
-      const produtoId = produto?.id
-      if (produtoId) {
-        try {
-          setSalvandoImagens(true)
-          const urls = await uploadMultiple(imagensSelecionadas, `/produto/${produtoId}/fotos`)
+    // Se houver imagens selecionadas e for edição (produto já existe), fazer upload primeiro
+    if (imagensSelecionadas.length > 0 && produto?.id) {
+      try {
+        setSalvandoImagens(true)
+        const urls = await uploadMultiple(imagensSelecionadas, `/produto/${produto.id}/fotos`)
+        
+        if (urls && urls.length > 0) {
+          // Adicionar novas fotos ao array existente
+          const novasFotos = urls.map((url, index) => ({
+            url,
+            destaque: fotos.length === 0 && index === 0,
+            ordem: fotos.length + index,
+          }))
+          setFotos([...fotos, ...novasFotos])
+          // Limpar preview e seleção
+          setImagensSelecionadas([])
+          setPreviews([])
           
-          if (urls && urls.length > 0) {
-            const novasFotos = urls.map((url, index) => ({
-              url,
-              destaque: fotos.length === 0 && index === 0,
-              ordem: fotos.length + index,
-            }))
-            setFotos([...fotos, ...novasFotos])
-            // Limpar preview e seleção
-            setImagensSelecionadas([])
-            setPreviews([])
-            
-            // Mostrar toast de sucesso
-            toast({
-              title: '✅ Imagens salvas com sucesso!',
-              description: `${urls.length} imagem(ns) foi(foram) adicionada(s) ao produto.`,
-            })
-          }
-        } catch (error: any) {
-          console.error('Erro ao fazer upload das imagens:', error)
+          // Mostrar toast de sucesso
           toast({
-            title: 'Erro ao fazer upload',
-            description: error.message || 'Ocorreu um erro ao fazer upload das imagens.',
-            variant: 'destructive',
+            title: '✅ Imagens salvas com sucesso!',
+            description: `${urls.length} imagem(ns) foi(foram) adicionada(s) ao produto.`,
           })
-          setSalvandoImagens(false)
-          return // Não continua se o upload falhar
-        } finally {
-          setSalvandoImagens(false)
         }
+      } catch (error: any) {
+        console.error('Erro ao fazer upload das imagens:', error)
+        toast({
+          title: 'Erro ao fazer upload',
+          description: error.message || 'Ocorreu um erro ao fazer upload das imagens.',
+          variant: 'destructive',
+        })
+        setSalvandoImagens(false)
+        return // Não continua se o upload falhar
+      } finally {
+        setSalvandoImagens(false)
       }
     }
     
@@ -136,10 +248,13 @@ export function EditarProdutoFormCompleto({
       nome: formData.nome,
       descricao: formData.descricao || null,
       sku: formData.sku || null,
+      marca: formData.marca || null,
+      modelo: formData.modelo || null,
+      tipo: formData.tipo || null,
       visivel: formData.visivel,
       ativo: formData.ativo,
-      destaque: formData.destaque, // ✅ Incluído
-      perecivel: formData.perecivel, // ✅ Incluído
+      destaque: formData.destaque,
+      perecivel: formData.perecivel,
       peso: formData.peso ? Number(formData.peso) : null,
       validade: formData.validade || null,
       largura: formData.largura ? Number(formData.largura) : null,
@@ -147,6 +262,13 @@ export function EditarProdutoFormCompleto({
       profundidade: formData.profundidade ? Number(formData.profundidade) : null,
       dimensoesStr: formData.dimensoesStr || null,
       categoriaId: formData.categoriaId || null,
+      // MVP: Preços diretos no produto
+      precoAtual: precoAtualNumero,
+      precoDesconto: precoDescontoNumero,
+      emPromocao: emPromocaoFinal,
+      // Compatibilidade: manter campos antigos
+      preco: precoNumero,
+      precoPromo: precoPromoNumero,
     }
 
     // Preparar fotos (com destaque e ordem)
@@ -460,6 +582,110 @@ export function EditarProdutoFormCompleto({
                     Remover categoria
                   </Button>
                 )}
+              </div>
+            </div>
+
+            {/* MVP: Novos campos (marca, modelo, tipo) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="marca">Marca</Label>
+                <Input
+                  id="marca"
+                  value={formData.marca}
+                  onChange={(e) =>
+                    setFormData({ ...formData, marca: e.target.value })
+                  }
+                  className="mt-1"
+                  placeholder="Marca do produto (opcional)"
+                />
+              </div>
+              <div>
+                <Label htmlFor="modelo">Modelo</Label>
+                <Input
+                  id="modelo"
+                  value={formData.modelo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, modelo: e.target.value })
+                  }
+                  className="mt-1"
+                  placeholder="Modelo (opcional)"
+                />
+              </div>
+              <div>
+                <Label htmlFor="tipo">Tipo</Label>
+                <Input
+                  id="tipo"
+                  value={formData.tipo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tipo: e.target.value })
+                  }
+                  className="mt-1"
+                  placeholder="Ex: alimento, limpeza (opcional)"
+                />
+              </div>
+            </div>
+
+            {/* MVP: Preços diretos no produto */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t pt-4">
+              <div>
+                <Label htmlFor="precoAtual">Preço Atual (R$) *</Label>
+                <Input
+                  id="precoAtual"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.precoAtual}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setFormData({ 
+                      ...formData, 
+                      precoAtual: value,
+                      preco: value // Compatibilidade
+                    })
+                  }}
+                  required
+                  className="mt-1"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label htmlFor="precoDesconto">Preço com Desconto (R$)</Label>
+                <Input
+                  id="precoDesconto"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.precoDesconto}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setFormData({ 
+                      ...formData, 
+                      precoDesconto: value,
+                      precoPromo: value, // Compatibilidade
+                      emPromocao: value !== '' && Number(value) > 0
+                    })
+                  }}
+                  className="mt-1"
+                  placeholder="0.00 (opcional)"
+                />
+              </div>
+              <div className="flex items-end">
+                <div className="flex items-center space-x-2 w-full">
+                  <Switch
+                    id="emPromocao"
+                    checked={formData.emPromocao}
+                    onCheckedChange={(checked) => {
+                      setFormData({ 
+                        ...formData, 
+                        emPromocao: checked,
+                        precoDesconto: checked ? formData.precoDesconto : ''
+                      })
+                    }}
+                  />
+                  <Label htmlFor="emPromocao" className="cursor-pointer">
+                    Produto em Promoção
+                  </Label>
+                </div>
               </div>
             </div>
           </CardContent>

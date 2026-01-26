@@ -28,6 +28,11 @@
   --accent: var(--feiralivre-primary-dark);
   --accent-foreground: var(--feiralivre-white);
   --destructive: var(--feiralivre-red);
+  --chart-1: 221 83% 53%;
+  --chart-2: 142 76% 36%;
+  --chart-3: 346 77% 50%;
+  --chart-4: 199 89% 48%;
+  --chart-5: 43 96% 56%;
   --destructive-foreground: var(--feiralivre-white);
   --border: #E5E7EB;
   --input: var(--feiralivre-white);

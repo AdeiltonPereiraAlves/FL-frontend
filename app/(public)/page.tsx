@@ -215,9 +215,17 @@ export default function HomePage() {
   // Definir cidade padrão quando cidades carregarem (apenas se não houver cidade restaurada)
   useEffect(() => {
     if (cidadesApi.data && cidadesApi.data.length > 0 && !cidadeInicializada) {
+      // Remover cidades duplicadas
+      const cidadesUnicas = cidadesApi.data.filter((c: any, index: number, self: any[]) => 
+        index === self.findIndex((ci: any) => 
+          ci.nome.toLowerCase() === c.nome.toLowerCase() && 
+          ci.estado === c.estado
+        )
+      )
+      
       // Só define cidade padrão se não houver cidadeId (não foi restaurada)
       if (!cidadeId) {
-        const cidadePadrao = definirCidadePadrao(cidadesApi.data)
+        const cidadePadrao = definirCidadePadrao(cidadesUnicas)
         if (cidadePadrao) {
           setCidadeId(cidadePadrao)
         }
@@ -239,9 +247,16 @@ export default function HomePage() {
       entidadesApi.execute({
         params: { cidadeId },
       }).then((data) => {
-        if (data) setEntidades(data)
+        console.log('🏪 [HomePage] Entidades carregadas:', data?.length || 0, data)
+        if (data && Array.isArray(data)) {
+          setEntidades(data)
+        } else {
+          console.warn('⚠️ [HomePage] Dados de entidades inválidos:', data)
+          setEntidades([])
+        }
       }).catch((error) => {
-        console.error('Erro ao carregar entidades:', error)
+        console.error('❌ [HomePage] Erro ao carregar entidades:', error)
+        setEntidades([])
       })
     } else if (!cidadeId) {
       setEntidades([])

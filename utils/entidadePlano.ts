@@ -1,95 +1,116 @@
 /**
  * Utilitários para gerenciar planos de entidades no frontend
  * 
- * Estrutura esperada em EntidadeConfiguracao:
- * {
- *   "chave": "plano",
- *   "valor": {
- *     "tipo": "FREE" | "BASICO" | "PREMIUM" | "PREMIUM_MAX",
- *     "nivel": 0 | 1 | 2 | 3
- *   }
- * }
+ * Agora usa o sistema real de planos do backend:
+ * - Entidade tem campo `planos` com array de EntidadePlano
+ * - Cada EntidadePlano tem um `plano` com as informações
+ * - O plano ativo é aquele com `ativa: true`
  */
 
-export type TipoPlano = 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX'
+export interface Plano {
+  id: string
+  nome: string
+  descricao?: string
+  preco?: number | null
+  destaqueNoMapa: boolean
+  aparecePrimeiroBusca: boolean
+  podeUsarBanner: boolean
+  limiteProdutos?: number | null
+  seloDestaque: boolean
+}
 
-export interface PlanoInfo {
-  tipo: TipoPlano
-  nivel: number
+export interface EntidadePlano {
+  id: string
+  ativa: boolean
+  dataInicio: string
+  dataFim?: string | null
+  plano: Plano
 }
 
 export interface EntidadeComPlano {
   id: string
   nome: string
-  configuracoes?: Array<{
-    chave: string
-    valor: any
-  }>
+  planos?: EntidadePlano[]
+  plano?: string // Nome do plano (para compatibilidade com listagem)
   [key: string]: any
 }
 
 /**
- * Extrai informações do plano de uma entidade
+ * Obtém o plano ativo de uma entidade
+ * Retorna o plano FREE como padrão se não houver plano ativo
  */
-export function obterPlanoEntidade(entidade: EntidadeComPlano): PlanoInfo {
-  if (!entidade.configuracoes || entidade.configuracoes.length === 0) {
-    return { tipo: 'FREE', nivel: 0 }
+export function obterPlanoAtivo(entidade: EntidadeComPlano): Plano | null {
+  // Se a entidade já tem o nome do plano (vindo da listagem)
+  if (entidade.plano) {
+    // Retornar null aqui, pois precisamos buscar os detalhes do plano
+    // O componente deve buscar o plano completo via API
+    return null
   }
 
-  const configPlano = entidade.configuracoes.find(
-    (config) => config.chave === 'plano'
-  )
+  // Se tem array de planos, buscar o ativo
+  if (entidade.planos && entidade.planos.length > 0) {
+    const planoAtivo = entidade.planos.find(
+      (ep) => ep.ativa && (!ep.dataFim || new Date(ep.dataFim) >= new Date())
+    )
 
-  if (!configPlano || !configPlano.valor) {
-    return { tipo: 'FREE', nivel: 0 }
+    if (planoAtivo) {
+      return planoAtivo.plano
+    }
   }
 
-  const valor = configPlano.valor as any
-
-  const tipo: TipoPlano = 
-    ['FREE', 'BASICO', 'PREMIUM', 'PREMIUM_MAX'].includes(valor.tipo)
-      ? valor.tipo
-      : 'FREE'
-
-  const nivel = typeof valor.nivel === 'number' && valor.nivel >= 0 && valor.nivel <= 3
-    ? valor.nivel
-    : 0
-
-  return { tipo, nivel }
+  // Retornar null se não encontrar (o componente deve buscar via API)
+  return null
 }
 
 /**
- * Verifica se a entidade tem logo no mapa
+ * Verifica se a entidade tem logo no mapa (destaqueNoMapa = true)
  */
 export function entidadeTemLogo(entidade: EntidadeComPlano): boolean {
-  const plano = obterPlanoEntidade(entidade)
-  return plano.nivel > 0
+  const plano = obterPlanoAtivo(entidade)
+  return plano?.destaqueNoMapa || false
 }
 
 /**
- * Verifica se a entidade tem destaque visual
+ * Verifica se a entidade tem destaque visual (seloDestaque = true)
  */
 export function entidadeTemDestaque(entidade: EntidadeComPlano): boolean {
-  const plano = obterPlanoEntidade(entidade)
-  return plano.tipo === 'PREMIUM' || plano.tipo === 'PREMIUM_MAX'
+  const plano = obterPlanoAtivo(entidade)
+  return plano?.seloDestaque || false
 }
 
 /**
  * Obtém o z-index do marcador baseado no plano
+ * Planos mais altos aparecem por cima
  */
 export function obterZIndexPlano(entidade: EntidadeComPlano): number {
-  const plano = obterPlanoEntidade(entidade)
+  const plano = obterPlanoAtivo(entidade)
   
-  switch (plano.tipo) {
+  if (!plano) return 100 // FREE padrão
+
+  switch (plano.nome) {
     case 'FREE':
       return 100
-    case 'BASICO':
+    case 'PRO':
       return 200
     case 'PREMIUM':
       return 300
-    case 'PREMIUM_MAX':
-      return 400
     default:
       return 100
   }
+}
+
+/**
+ * Verifica se a entidade aparece primeiro na busca
+ */
+export function entidadeAparecePrimeiroBusca(entidade: EntidadeComPlano): boolean {
+  const plano = obterPlanoAtivo(entidade)
+  return plano?.aparecePrimeiroBusca || false
+}
+
+/**
+ * Verifica se a entidade pode usar banner
+ */
+export function entidadePodeUsarBanner(entidade: EntidadeComPlano): boolean {
+  const plano = obterPlanoAtivo(entidade)
+  return plano?.podeUsarBanner || false
 }

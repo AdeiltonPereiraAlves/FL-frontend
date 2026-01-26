@@ -7,9 +7,16 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { useApiContext } from '@/contexts/ApiContext'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Save, X, Loader2, MapPin, Phone, Mail, Upload } from 'lucide-react'
 import { useImageUpload } from '@/utils/uploadImage'
+import { useApiContext } from '@/contexts/ApiContext'
 
 interface EditarEntidadeFormProps {
   entidade: any
@@ -31,6 +38,10 @@ export function EditarEntidadeForm({
   const [formData, setFormData] = useState({
     nome: entidade?.nome || '',
     descricao: entidade?.descricao || '',
+    tipo: entidade?.tipo || 'COMERCIO',
+    status: entidade?.status || 'ATIVA',
+    categoriaId: entidade?.categoria?.id || '',
+    responsavelId: entidade?.responsavel?.id || '',
     fotoPerfilUrl: entidade?.fotoPerfilUrl || '',
     fazEntrega: entidade?.fazEntrega || false,
     valorMinimoEntrega: entidade?.valorMinimoEntrega
@@ -47,8 +58,24 @@ export function EditarEntidadeForm({
     email: entidade?.contato?.email || '',
   })
 
+  const [categorias, setCategorias] = useState<any[]>([])
+  const [usuarios, setUsuarios] = useState<any[]>([])
   const [uploadingFoto, setUploadingFoto] = useState(false)
   const { uploadSingle } = useImageUpload()
+  const api = useApiContext()
+
+  // Carregar categorias e usuários
+  useEffect(() => {
+    const carregarDados = async () => {
+      try {
+        // TODO: Criar endpoints para listar categorias e usuários admin
+        // Por enquanto, deixar vazio
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error)
+      }
+    }
+    carregarDados()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +83,10 @@ export function EditarEntidadeForm({
     const dados = {
       nome: formData.nome,
       descricao: formData.descricao || null,
+      tipo: formData.tipo,
+      status: formData.status as any,
+      categoriaId: formData.categoriaId || null,
+      responsavelId: formData.responsavelId || null,
       fotoPerfilUrl: formData.fotoPerfilUrl || null,
       fazEntrega: formData.fazEntrega,
       valorMinimoEntrega: formData.valorMinimoEntrega
@@ -116,6 +147,43 @@ export function EditarEntidadeForm({
                 rows={3}
                 className="mt-1"
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="tipo">Tipo *</Label>
+                <Select
+                  value={formData.tipo}
+                  onValueChange={(value) => setFormData({ ...formData, tipo: value })}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="COMERCIO">Comércio</SelectItem>
+                    <SelectItem value="SERVICO">Serviço</SelectItem>
+                    <SelectItem value="PROFISSIONAL">Profissional</SelectItem>
+                    <SelectItem value="INSTITUICAO">Instituição</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="status">Status *</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value as any })}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ATIVA">Ativa</SelectItem>
+                    <SelectItem value="INATIVA">Inativa</SelectItem>
+                    <SelectItem value="BLOQUEADA">Bloqueada</SelectItem>
+                    <SelectItem value="EM_ANALISE">Em Análise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -14,16 +14,18 @@ export function PopupProdutoMapa({
 }) {
   const { adicionar } = useCart()
 
-  // MVP: Usar precoAtual como preço principal
+  // MVP: Usar campos diretos do produto
   const precoAtual = produto.precoAtual || produto.precoFinal || produto.precoNormal || 0
-  const precoAntigo = produto.precoAntigo
-  const emPromocao = produto.emPromocao || (!!precoAntigo && !!precoAtual)
+  const precoDesconto = produto.precoDesconto || produto.precoPromo || null
+  const emPromocao = produto.emPromocao && precoDesconto !== null
+  const precoAntigo = emPromocao ? precoAtual : null
+  const precoFinal = emPromocao ? precoDesconto : precoAtual
 
   function handleAdd() {
     adicionar({
       id: produto.id,
       nome: produto.nome,
-      precoFinal: precoAtual,
+      precoFinal: precoFinal,
       entidade: produto.entidade,
     })
   }
@@ -59,7 +61,7 @@ export function PopupProdutoMapa({
                 ? 'text-green-600' 
                 : 'text-[#16A34A]'
             }`}>
-              R$ {precoAtual.toFixed(2)}
+              R$ {precoFinal.toFixed(2)}
             </p>
           </div>
         ) : (
@@ -68,7 +70,7 @@ export function PopupProdutoMapa({
               ? 'text-green-600' 
               : 'text-[#16A34A]'
           }`}>
-            R$ {precoAtual.toFixed(2) || 'N/A'}
+            R$ {precoFinal.toFixed(2) || 'N/A'}
           </p>
         )}
         {isDestaque && (

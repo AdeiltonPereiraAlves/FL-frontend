@@ -1,17 +1,17 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useState, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Header } from '@/components/Header'
-import { useApiContext } from '@/contexts/ApiContext'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, ArrowLeft, Package, Image as ImageIcon, Save, Loader2 } from 'lucide-react'
+import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Button } from '@/components/ui/button'
-import { EditarProdutoImagens } from '@/components/admin/EditarProdutoImagens'
-import { EditarProdutoInformacoes } from '@/components/admin/EditarProdutoInformacoes'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle, ArrowLeft, Package, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/hooks/useRole'
+import { useProdutoAdmin } from '@/hooks/useProdutoAdmin'
+import { EditarProdutoImagens } from '@/components/admin/EditarProdutoImagens'
+import { EditarProdutoInformacoes } from '@/components/admin/EditarProdutoInformacoes'
+import { useApiContext } from '@/contexts/ApiContext'
 
 /**
  * Página dedicada para edição completa de produtos
@@ -26,54 +26,34 @@ export default function EditarProdutoPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast()
   const { isDonoSistema, isAdmin } = useRole()
 
-  const [produto, setProduto] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const produtoId = resolvedParams.id
+  const { produto, isLoading, error, carregarProduto, atualizarProduto } = useProdutoAdmin(produtoId)
+
   const [activeTab, setActiveTab] = useState<'imagens' | 'informacoes'>('imagens')
   const [salvandoImagens, setSalvandoImagens] = useState(false)
   const [salvandoInformacoes, setSalvandoInformacoes] = useState(false)
 
   // Página anterior para voltar
-  const paginaAnterior = searchParams.get('from') || '/admin/planos'
+  const paginaAnterior = searchParams.get('from') || '/admin/entidades'
 
-  useEffect(() => {
-    // Verificar permissões
-    if (!isDonoSistema() && !isAdmin()) {
-      router.push('/')
-      return
-    }
-
-    async function carregarProduto() {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await api.get(`/produto/${resolvedParams.id}/completo`)
-        setProduto(data)
-      } catch (err: any) {
-        console.error('Erro ao carregar produto:', err)
-        setError(err.message || 'Erro ao carregar informações do produto')
-        toast({
-          title: 'Erro ao carregar produto',
-          description: err.message || 'Não foi possível carregar as informações do produto.',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (resolvedParams.id) {
-      carregarProduto()
-    }
-  }, [resolvedParams.id, api, router, isDonoSistema, isAdmin, toast])
+  // Verificar permissões
+  if (!isDonoSistema() && !isAdmin()) {
+    router.push('/')
+    return null
+  }
 
   const handleSalvarImagens = async (fotos: any[]) => {
+    if (!produtoId || !api) return
+
     setSalvandoImagens(true)
     try {
-      await api.put(`/produto/${resolvedParams.id}/fotos`, { fotos })
+      await api.put(`/produto/${produtoId}/fotos`, { fotos })
       
       // Atualizar produto local
-      setProduto({ ...produto, fotos })
+      atualizarProduto({ fotos })
+      
+      // Recarregar produto para garantir sincronização
+      await carregarProduto()
       
       toast({
         title: '✅ Imagens salvas com sucesso!',
@@ -93,26 +73,36 @@ export default function EditarProdutoPage({ params }: { params: Promise<{ id: st
   }
 
   const handleSalvarInformacoes = async (dados: any) => {
+    if (!produtoId || !api) return
+
     setSalvandoInformacoes(true)
     try {
       const { fotos, tags, atributos, variacoes, ...dadosBasicos } = dados
 
       // Atualizar dados básicos
-      await api.put(`/produto/${resolvedParams.id}`, dadosBasicos)
+      await api.put(`/produto/${produtoId}`, dadosBasicos)
 
-      // Atualizar relacionamentos
-      await api.put(`/produto/${resolvedParams.id}/tags`, { 
-        tags: Array.isArray(tags) ? tags : [] 
-      })
-      await api.put(`/produto/${resolvedParams.id}/atributos`, { 
-        atributos: Array.isArray(atributos) ? atributos : [] 
-      })
-      await api.put(`/produto/${resolvedParams.id}/variacoes`, { 
-        variacoes: Array.isArray(variacoes) ? variacoes : [] 
-      })
+      // Atualizar relacionamentos se existirem
+      if (tags !== undefined) {
+        await api.put(`/produto/${produtoId}/tags`, { 
+          tags: Array.isArray(tags) ? tags : [] 
+        })
+      }
+      
+      if (atributos !== undefined) {
+        await api.put(`/produto/${produtoId}/atributos`, { 
+          atributos: Array.isArray(atributos) ? atributos : [] 
+        })
+      }
+      
+      if (variacoes !== undefined) {
+        await api.put(`/produto/${produtoId}/variacoes`, { 
+          variacoes: Array.isArray(variacoes) ? variacoes : [] 
+        })
+      }
 
-      // Atualizar produto local
-      setProduto({ ...produto, ...dadosBasicos, tags, atributos, variacoes })
+      // Recarregar produto completo para garantir sincronização
+      await carregarProduto()
       
       toast({
         title: '✅ Informações salvas com sucesso!',
@@ -131,12 +121,19 @@ export default function EditarProdutoPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-          <LoadingSpinner size="lg" text="Carregando informações do produto..." />
+      <div className="flex min-h-screen bg-background">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col lg:pl-64">
+          <main className="flex-1 p-4 md:p-8 lg:p-10">
+            <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#15803D] mx-auto mb-4" />
+                <p className="text-muted-foreground">Carregando informações do produto...</p>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     )
@@ -144,112 +141,117 @@ export default function EditarProdutoPage({ params }: { params: Promise<{ id: st
 
   if (error || !produto) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(paginaAnterior)}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {error || 'Produto não encontrado'}
-            </AlertDescription>
-          </Alert>
+      <div className="flex min-h-screen bg-background">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col lg:pl-64">
+          <main className="flex-1 p-4 md:p-8 lg:p-10">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(paginaAnterior)}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error || 'Produto não encontrado'}
+              </AlertDescription>
+            </Alert>
+          </main>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="flex min-h-screen bg-background">
+      <AdminSidebar />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Header da página */}
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(paginaAnterior)}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Editar Produto
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {produto.nome}
-              </p>
+      <div className="flex-1 flex flex-col lg:pl-64">
+        <main className="flex-1 p-4 md:p-8 lg:p-10">
+          {/* Header da página */}
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(paginaAnterior)}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">
+                  Editar Produto
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  {produto.nome}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Tabs de navegação */}
-        <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-          <nav className="flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('imagens')}
-              className={`
-                py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${
-                  activeTab === 'imagens'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Imagens do Produto
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('informacoes')}
-              className={`
-                py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${
-                  activeTab === 'informacoes'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Informações do Produto
-              </div>
-            </button>
-          </nav>
-        </div>
+          {/* Tabs de navegação */}
+          <div className="border-b border-border mb-6">
+            <nav className="flex space-x-8" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('imagens')}
+                className={`
+                  py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  ${
+                    activeTab === 'imagens'
+                      ? 'border-[#15803D] text-[#15803D]'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  Imagens do Produto
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('informacoes')}
+                className={`
+                  py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  ${
+                    activeTab === 'informacoes'
+                      ? 'border-[#15803D] text-[#15803D]'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Informações do Produto
+                </div>
+              </button>
+            </nav>
+          </div>
 
-        {/* Conteúdo das tabs */}
-        <div className="mt-6">
-          {activeTab === 'imagens' && (
-            <EditarProdutoImagens
-              produto={produto}
-              onSave={handleSalvarImagens}
-              isLoading={salvandoImagens}
-            />
-          )}
+          {/* Conteúdo das tabs */}
+          <div className="mt-6">
+            {activeTab === 'imagens' && (
+              <EditarProdutoImagens
+                produto={produto}
+                onSave={handleSalvarImagens}
+                isLoading={salvandoImagens}
+                onFotoRemovida={carregarProduto}
+              />
+            )}
 
-          {activeTab === 'informacoes' && (
-            <EditarProdutoInformacoes
-              produto={produto}
-              onSave={handleSalvarInformacoes}
-              isLoading={salvandoInformacoes}
-            />
-          )}
-        </div>
+            {activeTab === 'informacoes' && (
+              <EditarProdutoInformacoes
+                produto={produto}
+                onSave={handleSalvarInformacoes}
+                isLoading={salvandoInformacoes}
+              />
+            )}
+          </div>
+        </main>
       </div>
     </div>
   )

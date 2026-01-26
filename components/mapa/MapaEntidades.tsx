@@ -215,10 +215,28 @@ export default function MapaEntidades({
     // carrinhoAberto permanece como está
   }
   const temBusca = produtos.length > 0
+  
+  // Log para debug
+  useEffect(() => {
+    console.log('🗺️ [MapaEntidades] Estado atual:', {
+      entidades: entidades.length,
+      produtos: produtos.length,
+      temBusca,
+      entidadesComLocalizacao: entidades.filter(e => e.localizacao?.latitude && e.localizacao?.longitude).length,
+      primeiraEntidade: entidades[0] ? {
+        nome: entidades[0].nome,
+        temLocalizacao: !!entidades[0].localizacao,
+        latitude: entidades[0].localizacao?.latitude,
+        longitude: entidades[0].localizacao?.longitude,
+      } : null,
+    })
+  }, [entidades, produtos, temBusca])
 
   // Filtra produtos com preço válido e localização
   const produtosValidos = useMemo(
     () => {
+      console.log('🔍 [MapaEntidades] Filtrando produtos válidos. Total recebido:', produtos.length)
+      
       const validos = produtos.filter(
         (p) => {
           // Verifica se tem preço (pode ser 0, mas não null/undefined)
@@ -232,9 +250,21 @@ export default function MapaEntidades({
             p.entidade?.localizacao?.longitude !== undefined &&
             !isNaN(Number(p.entidade.localizacao.longitude))
           
+          if (!temPreco) {
+            console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" sem preço válido:`, p.precoFinal)
+          }
+          if (!temLocalizacao) {
+            console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" sem localização válida:`, p.entidade?.localizacao)
+          }
+          
           return temPreco && temLocalizacao
         }
       )
+      
+      console.log(`✅ [MapaEntidades] Produtos válidos após filtro: ${validos.length} de ${produtos.length}`)
+      validos.forEach((p, i) => {
+        console.log(`  ${i + 1}. ${p.nome} - Preço: R$ ${p.precoFinal}, Localização: [${p.entidade?.localizacao?.latitude}, ${p.entidade?.localizacao?.longitude}]`)
+      })
       
       return validos
     },
@@ -263,8 +293,23 @@ export default function MapaEntidades({
       const loc = produtosExibidos[0].entidade.localizacao
       return [loc.latitude, loc.longitude]
     }
+    // Se não há busca, calcular centro baseado nas entidades
+    if (!temBusca && entidades.length > 0) {
+      const entidadesComLocalizacao = entidades.filter((e) => 
+        e.localizacao?.latitude && e.localizacao?.longitude
+      )
+      if (entidadesComLocalizacao.length > 0) {
+        // Calcular centro médio das entidades
+        const somaLat = entidadesComLocalizacao.reduce((sum, e) => sum + Number(e.localizacao.latitude), 0)
+        const somaLng = entidadesComLocalizacao.reduce((sum, e) => sum + Number(e.localizacao.longitude), 0)
+        const centroLat = somaLat / entidadesComLocalizacao.length
+        const centroLng = somaLng / entidadesComLocalizacao.length
+        console.log('📍 [MapaEntidades] Centro calculado das entidades:', { centroLat, centroLng, total: entidadesComLocalizacao.length })
+        return [centroLat, centroLng]
+      }
+    }
     return SOUSA_PB
-  }, [temBusca, produtosExibidos])
+  }, [temBusca, produtosExibidos, entidades])
 
   // Event delegation para navegação e interações dos marcadores
   useEffect(() => {
@@ -415,7 +460,10 @@ export default function MapaEntidades({
         {!temBusca &&
           entidades.map((ent) => {
             const loc = ent.localizacao
-            if (!loc) return null
+            if (!loc || !loc.latitude || !loc.longitude) {
+              console.warn('⚠️ [MapaEntidades] Entidade sem localização válida:', ent.nome, ent.id, loc)
+              return null
+            }
             
             const temLogo = entidadeTemLogo(ent)
             const temDestaque = entidadeTemDestaque(ent)
@@ -424,7 +472,7 @@ export default function MapaEntidades({
             return (
               <Marker
                 key={ent.id}
-                position={[loc.latitude, loc.longitude]}
+                position={[Number(loc.latitude), Number(loc.longitude)]}
                 icon={createEntityDivIcon({
                   imageUrl: ent.fotoPerfilUrl || 'https://via.placeholder.com/50',
                   nomeEntidade: ent.nome,
