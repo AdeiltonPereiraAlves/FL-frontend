@@ -243,23 +243,53 @@ export default function MapaEntidades({
         (p) => {
           // Verifica se tem preço (pode ser 0, mas não null/undefined)
           const temPreco = p.precoFinal !== null && p.precoFinal !== undefined && !isNaN(Number(p.precoFinal))
+          
+          // Verifica se entidade está ativa
+          const entidadeAtiva = p.entidade?.status === 'ATIVA'
+          
           // Verifica se tem localização válida
-          const temLocalizacao = 
-            p.entidade?.localizacao?.latitude !== null && 
-            p.entidade?.localizacao?.latitude !== undefined &&
-            !isNaN(Number(p.entidade.localizacao.latitude)) &&
-            p.entidade?.localizacao?.longitude !== null &&
-            p.entidade?.localizacao?.longitude !== undefined &&
-            !isNaN(Number(p.entidade.localizacao.longitude))
+          const loc = p.entidade?.localizacao
+          const temLocalizacao = entidadeAtiva &&
+            loc &&
+            loc.latitude !== null && 
+            loc.latitude !== undefined &&
+            loc.longitude !== null &&
+            loc.longitude !== undefined
           
-          if (!temPreco) {
-            console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" sem preço válido:`, p.precoFinal)
-          }
-          if (!temLocalizacao) {
-            console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" sem localização válida:`, p.entidade?.localizacao)
+          // Validar ranges de coordenadas
+          let coordenadasValidas = false
+          if (temLocalizacao) {
+            const lat = Number(loc.latitude)
+            const lng = Number(loc.longitude)
+            coordenadasValidas = !isNaN(lat) && 
+                                !isNaN(lng) &&
+                                isFinite(lat) &&
+                                isFinite(lng) &&
+                                lat >= -90 && lat <= 90 &&
+                                lng >= -180 && lng <= 180
           }
           
-          return temPreco && temLocalizacao
+          const valido = temPreco && entidadeAtiva && temLocalizacao && coordenadasValidas
+          
+          if (!valido) {
+            if (!temPreco) {
+              console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" sem preço válido:`, p.precoFinal)
+            }
+            if (!entidadeAtiva) {
+              console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" - entidade não está ativa:`, p.entidade?.status)
+            }
+            if (!temLocalizacao) {
+              console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" sem localização válida:`, loc)
+            }
+            if (temLocalizacao && !coordenadasValidas) {
+              console.warn(`⚠️ [MapaEntidades] Produto "${p.nome}" com coordenadas inválidas:`, {
+                latitude: loc?.latitude,
+                longitude: loc?.longitude,
+              })
+            }
+          }
+          
+          return valido
         }
       )
       
@@ -293,23 +323,43 @@ export default function MapaEntidades({
   const center = useMemo<[number, number]>(() => {
     if (temBusca && produtosExibidos.length > 0) {
       const loc = produtosExibidos[0].entidade.localizacao
-      return [loc.latitude, loc.longitude]
+      const lat = Number(loc.latitude)
+      const lng = Number(loc.longitude)
+      // Validar antes de usar
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return [lat, lng]
+      }
     }
-    // Se não há busca, calcular centro baseado nas entidades
+    // Se não há busca, calcular centro baseado nas entidades válidas
     if (!temBusca && entidades.length > 0) {
-      const entidadesComLocalizacao = entidades.filter((e) => 
-        e.localizacao?.latitude && e.localizacao?.longitude
-      )
+      const entidadesComLocalizacao = entidades.filter((e) => {
+        if (e.status !== 'ATIVA') return false
+        const loc = e.localizacao
+        if (!loc || loc.latitude === null || loc.longitude === null) return false
+        const lat = Number(loc.latitude)
+        const lng = Number(loc.longitude)
+        return !isNaN(lat) && !isNaN(lng) && 
+               lat >= -90 && lat <= 90 && 
+               lng >= -180 && lng <= 180
+      })
       if (entidadesComLocalizacao.length > 0) {
         // Calcular centro médio das entidades
         const somaLat = entidadesComLocalizacao.reduce((sum, e) => sum + Number(e.localizacao.latitude), 0)
         const somaLng = entidadesComLocalizacao.reduce((sum, e) => sum + Number(e.localizacao.longitude), 0)
         const centroLat = somaLat / entidadesComLocalizacao.length
         const centroLng = somaLng / entidadesComLocalizacao.length
-        console.log('📍 [MapaEntidades] Centro calculado das entidades:', { centroLat, centroLng, total: entidadesComLocalizacao.length })
-        return [centroLat, centroLng]
+        // Validar centro calculado
+        if (!isNaN(centroLat) && !isNaN(centroLng) && 
+            centroLat >= -90 && centroLat <= 90 && 
+            centroLng >= -180 && centroLng <= 180) {
+          console.log('📍 [MapaEntidades] Centro calculado das entidades:', { centroLat, centroLng, total: entidadesComLocalizacao.length })
+          return [centroLat, centroLng]
+        }
       }
     }
+    // Fallback: sempre retornar SOUSA_PB se não houver entidades válidas
+    console.log('📍 [MapaEntidades] Usando centro padrão (SOUSA_PB)')
+    return SOUSA_PB
     return SOUSA_PB
   }, [temBusca, produtosExibidos, entidades])
 
@@ -459,14 +509,46 @@ export default function MapaEntidades({
         <RecenterMap center={center} />
 
         {/* 1️⃣ Mostrar todas as entidades quando não há busca */}
-        {!temBusca &&
-          entidades.map((ent) => {
-            const loc = ent.localizacao
-            if (!loc || !loc.latitude || !loc.longitude) {
-              console.warn('⚠️ [MapaEntidades] Entidade sem localização válida:', ent.nome, ent.id, loc)
-              return null
+        {!temBusca && (() => {
+          // Filtrar entidades válidas: status ATIVA, localização válida e coordenadas dentro dos ranges
+          const entidadesValidas = entidades.filter((ent) => {
+            // Verificar se está ativa
+            if (ent.status !== 'ATIVA') {
+              console.warn(`⚠️ [MapaEntidades] Entidade "${ent.nome}" (${ent.id}) filtrada por status: ${ent.status}`)
+              return false
             }
             
+            const loc = ent.localizacao
+            if (!loc || loc.latitude === null || loc.latitude === undefined || 
+                loc.longitude === null || loc.longitude === undefined) {
+              console.warn(`⚠️ [MapaEntidades] Entidade "${ent.nome}" (${ent.id}) filtrada por localização ausente`)
+              return false
+            }
+            
+            // Validar ranges
+            const lat = Number(loc.latitude)
+            const lng = Number(loc.longitude)
+            
+            const latValida = !isNaN(lat) && isFinite(lat) && lat >= -90 && lat <= 90
+            const lngValida = !isNaN(lng) && isFinite(lng) && lng >= -180 && lng <= 180
+            
+            if (!latValida || !lngValida) {
+              console.warn(`⚠️ [MapaEntidades] Entidade "${ent.nome}" (${ent.id}) filtrada por coordenadas inválidas:`, {
+                latitude: lat,
+                longitude: lng,
+                latValida,
+                lngValida,
+              })
+              return false
+            }
+            
+            return true
+          })
+          
+          console.log(`🗺️ [MapaEntidades] Renderizando ${entidadesValidas.length} de ${entidades.length} entidades válidas no mapa`)
+          
+          return entidadesValidas.map((ent) => {
+            const loc = ent.localizacao!
             const temLogo = entidadeTemLogo(ent)
             const temDestaque = entidadeTemDestaque(ent)
             const zIndex = obterZIndexPlano(ent)
@@ -486,14 +568,23 @@ export default function MapaEntidades({
                 })}
               />
             )
-          })}
+          })
+        })()}
 
         {/* 2️⃣ Mostrar produtos encontrados - TODAS as entidades com o produto */}
         {temBusca && produtosExibidos.length > 0 &&
           produtosExibidos.map((produto) => {
             const loc = produto.entidade?.localizacao
-            if (!loc || !loc.latitude || !loc.longitude) {
-              console.warn('Produto sem localização válida:', produto.nome, produto.id)
+            // Validação adicional de segurança (já filtrado em produtosValidos, mas garantindo)
+            if (!loc || loc.latitude === null || loc.longitude === null) {
+              console.warn('⚠️ [MapaEntidades] Produto sem localização válida:', produto.nome, produto.id)
+              return null
+            }
+            
+            const lat = Number(loc.latitude)
+            const lng = Number(loc.longitude)
+            if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+              console.warn('⚠️ [MapaEntidades] Produto com coordenadas inválidas:', produto.nome, { lat, lng })
               return null
             }
             

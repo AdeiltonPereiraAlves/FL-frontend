@@ -251,6 +251,17 @@ export default function HomePage() {
       }).then((data) => {
         console.log('🏪 [HomePage] Entidades carregadas:', data?.length || 0, data)
         if (data && Array.isArray(data)) {
+          // Log detalhado de cada entidade recebida
+          data.forEach((ent, index) => {
+            console.log(`  ${index + 1}. ${ent.nome} (${ent.id}):`, {
+              status: ent.status,
+              temLocalizacao: !!ent.localizacao,
+              latitude: ent.localizacao?.latitude,
+              longitude: ent.localizacao?.longitude,
+              cidadeId: ent.cidadeId,
+              cidadeNome: ent.cidade?.nome,
+            })
+          })
           setEntidades(data)
         } else {
           console.warn('⚠️ [HomePage] Dados de entidades inválidos:', data)

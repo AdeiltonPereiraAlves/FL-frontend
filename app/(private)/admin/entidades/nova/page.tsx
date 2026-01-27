@@ -22,6 +22,9 @@ import {
 } from '@/components/ui/select'
 import { useApiContext } from '@/contexts/ApiContext'
 import { useToast } from '@/hooks/use-toast'
+import { useImageUpload } from '@/utils/uploadImage'
+import { maskCNPJ, unmaskCNPJ, maskPhone, unmaskPhone, maskCEP, unmaskCEP } from '@/utils/masks'
+import { Upload } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NovaEntidadePage() {
@@ -32,9 +35,12 @@ export default function NovaEntidadePage() {
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(false)
+  const [uploadingFoto, setUploadingFoto] = useState(false)
   const [cidades, setCidades] = useState<Array<{ id: string; nome: string; estado: string }>>([])
   const [categorias, setCategorias] = useState<Array<{ id: string; nome: string }>>([])
+  const { uploadSingle } = useImageUpload()
 
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
@@ -43,6 +49,7 @@ export default function NovaEntidadePage() {
     cidadeId: '',
     categoriaId: '',
     responsavelId: '',
+    fotoPerfilUrl: '',
     fazEntrega: false,
     valorMinimoEntrega: '',
     // Localização
@@ -86,41 +93,190 @@ export default function NovaEntidadePage() {
     setLoading(true)
 
     try {
-      const dados = {
+      // Validar e preparar localização
+      console.log('🔍 [NovaEntidadePage] Validação de localização - Valores do formData:', {
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        latitudeType: typeof formData.latitude,
+        longitudeType: typeof formData.longitude,
+        latitudeLength: formData.latitude?.length,
+        longitudeLength: formData.longitude?.length,
+      })
+      
+      // Verificar se os campos têm valores (mesmo que sejam strings vazias)
+      const latitudeStr = formData.latitude?.toString().trim() || ''
+      const longitudeStr = formData.longitude?.toString().trim() || ''
+      
+      const temLatitude = latitudeStr !== ''
+      const temLongitude = longitudeStr !== ''
+      
+      console.log('🔍 [NovaEntidadePage] Após trim:', {
+        latitudeStr,
+        longitudeStr,
+        temLatitude,
+        temLongitude,
+      })
+      
+      // Converter para número
+      const latitudeNum = temLatitude ? Number(latitudeStr) : null
+      const longitudeNum = temLongitude ? Number(longitudeStr) : null
+      
+      console.log('🔍 [NovaEntidadePage] Após conversão:', {
+        latitudeNum,
+        longitudeNum,
+        latitudeIsNaN: latitudeNum !== null ? isNaN(latitudeNum) : 'N/A',
+        longitudeIsNaN: longitudeNum !== null ? isNaN(longitudeNum) : 'N/A',
+        latitudeIsFinite: latitudeNum !== null ? isFinite(latitudeNum) : 'N/A',
+        longitudeIsFinite: longitudeNum !== null ? isFinite(longitudeNum) : 'N/A',
+      })
+      
+      // Validar se são números válidos e dentro dos ranges válidos
+      const latitudeValida = latitudeNum !== null && 
+                            !isNaN(latitudeNum) && 
+                            isFinite(latitudeNum) &&
+                            latitudeNum >= -90 && 
+                            latitudeNum <= 90
+      
+      const longitudeValida = longitudeNum !== null && 
+                             !isNaN(longitudeNum) && 
+                             isFinite(longitudeNum) &&
+                             longitudeNum >= -180 && 
+                             longitudeNum <= 180
+      
+      const localizacaoValida = temLatitude && temLongitude && 
+                                latitudeValida && longitudeValida
+
+      console.log('🔍 [NovaEntidadePage] Validação final:', {
+        latitudeValida,
+        longitudeValida,
+        localizacaoValida,
+        temLatitude,
+        temLongitude,
+        motivoFalha: !localizacaoValida ? {
+          naoTemLatitude: !temLatitude,
+          naoTemLongitude: !temLongitude,
+          latitudeInvalida: temLatitude && !latitudeValida,
+          longitudeInvalida: temLongitude && !longitudeValida,
+        } : null,
+      })
+
+      // Validar localização antes de enviar
+      if (temLatitude || temLongitude) {
+        if (!localizacaoValida) {
+          let mensagemErro = 'Erro na localização:\n'
+          if (temLatitude && !latitudeValida) {
+            mensagemErro += '- Latitude inválida. Deve ser um número entre -90 e 90.\n'
+            mensagemErro += `  Valor recebido: ${formData.latitude}\n`
+            mensagemErro += '  Exemplo: -6.759 (para Sousa-PB)\n'
+          }
+          if (temLongitude && !longitudeValida) {
+            mensagemErro += '- Longitude inválida. Deve ser um número entre -180 e 180.\n'
+            mensagemErro += `  Valor recebido: ${formData.longitude}\n`
+            mensagemErro += '  Exemplo: -38.2316 (para Sousa-PB)\n'
+          }
+          
+          console.error('❌ [NovaEntidadePage] Localização inválida:', {
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            latitudeValida,
+            longitudeValida,
+          })
+          
+          toast({
+            title: 'Erro de Validação',
+            description: mensagemErro.trim(),
+            variant: 'destructive',
+          })
+          setLoading(false)
+          return
+        }
+      } else {
+        console.warn('⚠️ [NovaEntidadePage] Latitude ou longitude não preenchidas:', {
+          temLatitude,
+          temLongitude,
+        })
+      }
+
+      const dados: any = {
         nome: formData.nome,
         descricao: formData.descricao || null,
-        cnpj: formData.cnpj,
+        cnpj: unmaskCNPJ(formData.cnpj), // Remove máscara antes de enviar
         tipo: formData.tipo,
         cidadeId: formData.cidadeId,
         categoriaId: formData.categoriaId || null,
         responsavelId: formData.responsavelId || null,
+        fotoPerfilUrl: formData.fotoPerfilUrl || null,
         fazEntrega: formData.fazEntrega,
         valorMinimoEntrega: formData.valorMinimoEntrega
           ? Number(formData.valorMinimoEntrega)
           : null,
-        localizacao: formData.latitude && formData.longitude
-          ? {
-              latitude: Number(formData.latitude),
-              longitude: Number(formData.longitude),
-              endereco: formData.endereco || null,
-              bairro: formData.bairro || null,
-              cep: formData.cep || null,
-            }
-          : null,
-        contato: formData.telefone || formData.email
-          ? {
-              telefone: formData.telefone || null,
-              email: formData.email || null,
-            }
-          : null,
       }
 
-      await api.post('/admin/entidades', dados)
+      // Adicionar localização apenas se válida (não usar undefined, usar null ou omitir)
+      if (localizacaoValida) {
+        dados.localizacao = {
+          latitude: latitudeNum,
+          longitude: longitudeNum,
+          endereco: formData.endereco || null,
+          bairro: formData.bairro || null,
+          cep: unmaskCEP(formData.cep) || null,
+        }
+        console.log('✅ [NovaEntidadePage] Localização adicionada aos dados:', dados.localizacao)
+      } else {
+        console.warn('⚠️ [NovaEntidadePage] Localização NÃO adicionada aos dados porque localizacaoValida =', localizacaoValida)
+      }
 
-      toast({
-        title: 'Sucesso!',
-        description: 'Entidade criada com sucesso.',
-      })
+      console.log('📤 [NovaEntidadePage] Dados FINAIS sendo enviados:', JSON.stringify({
+        ...dados,
+        localizacaoValida,
+        temLocalizacao: !!dados.localizacao,
+      }, null, 2))
+
+      // Adicionar contato se fornecido
+      if (formData.telefone || formData.email) {
+        dados.contato = {
+          telefone: unmaskPhone(formData.telefone) || null,
+          email: formData.email || null,
+        }
+      }
+
+      const response = await api.post('/admin/entidades', dados)
+      const entidadeCriada = response.entidade || response
+      const entidadeId = entidadeCriada?.id || entidadeCriada?.id
+
+      // Se há um arquivo de foto selecionado, fazer upload após criar a entidade
+      if (fotoFile && entidadeId) {
+        try {
+          setUploadingFoto(true)
+          const url = await uploadSingle(
+            fotoFile,
+            `/entidade/${entidadeId}/foto-perfil`
+          )
+          
+          // Atualizar a entidade com a URL da foto
+          await api.put(`/admin/entidades/${entidadeId}`, {
+            fotoPerfilUrl: url,
+          })
+          
+          toast({
+            title: 'Sucesso!',
+            description: 'Entidade criada e foto enviada com sucesso.',
+          })
+        } catch (error: any) {
+          console.error('Erro ao fazer upload da foto:', error)
+          toast({
+            title: 'Aviso',
+            description: 'Entidade criada, mas houve erro ao enviar a foto. Você pode fazer upload na página de edição.',
+          })
+        } finally {
+          setUploadingFoto(false)
+        }
+      } else {
+        toast({
+          title: 'Sucesso!',
+          description: 'Entidade criada com sucesso.',
+        })
+      }
 
       router.push('/admin/entidades')
     } catch (error: any) {
@@ -203,7 +359,9 @@ export default function NovaEntidadePage() {
                       <Input
                         id="cnpj"
                         value={formData.cnpj}
-                        onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, cnpj: maskCNPJ(e.target.value) })}
+                        placeholder="00.000.000/0000-00"
+                        maxLength={18}
                         required
                       />
                     </div>
@@ -269,27 +427,96 @@ export default function NovaEntidadePage() {
                   <CardDescription>Endereço e coordenadas da entidade</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="space-y-2 mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      📍 Informações sobre Coordenadas
+                    </p>
+                    <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                      <li><strong>Latitude:</strong> Deve ser um número entre <strong>-90</strong> e <strong>90</strong></li>
+                      <li><strong>Longitude:</strong> Deve ser um número entre <strong>-180</strong> e <strong>180</strong></li>
+                      <li>Use ponto (.) como separador decimal, não vírgula</li>
+                      <li>Exemplo para Sousa-PB: Latitude <strong>-6.759</strong>, Longitude <strong>-38.2316</strong></li>
+                    </ul>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="latitude">Latitude</Label>
+                      <Label htmlFor="latitude">Latitude *</Label>
                       <Input
                         id="latitude"
                         type="number"
                         step="any"
                         value={formData.latitude}
-                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          // Validar em tempo real
+                          if (value === '' || (!isNaN(Number(value)) && Number(value) >= -90 && Number(value) <= 90)) {
+                            setFormData({ ...formData, latitude: value })
+                          }
+                        }}
+                        placeholder="-6.759"
+                        min={-90}
+                        max={90}
                       />
+                      {formData.latitude && (
+                        <p className={`text-xs mt-1 ${
+                          (() => {
+                            const num = Number(formData.latitude)
+                            if (isNaN(num)) return 'text-red-600'
+                            if (num < -90 || num > 90) return 'text-red-600'
+                            return 'text-green-600'
+                          })()
+                        }`}>
+                          {(() => {
+                            const num = Number(formData.latitude)
+                            if (isNaN(num)) return '⚠️ Deve ser um número'
+                            if (num < -90 || num > 90) return '⚠️ Deve estar entre -90 e 90'
+                            return '✅ Latitude válida'
+                          })()}
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <Label htmlFor="longitude">Longitude</Label>
+                      <Label htmlFor="longitude">Longitude *</Label>
                       <Input
                         id="longitude"
                         type="number"
                         step="any"
                         value={formData.longitude}
-                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          // Validar em tempo real
+                          if (value === '' || (!isNaN(Number(value)) && Number(value) >= -180 && Number(value) <= 180)) {
+                            setFormData({ ...formData, longitude: value })
+                          }
+                        }}
+                        placeholder="-38.2316"
+                        min={-180}
+                        max={180}
                       />
+                      {formData.longitude && (
+                        <p className={`text-xs mt-1 ${
+                          (() => {
+                            const num = Number(formData.longitude)
+                            if (isNaN(num)) return 'text-red-600'
+                            if (num < -180 || num > 180) return 'text-red-600'
+                            return 'text-green-600'
+                          })()
+                        }`}>
+                          {(() => {
+                            const num = Number(formData.longitude)
+                            if (isNaN(num)) return '⚠️ Deve ser um número'
+                            if (num < -180 || num > 180) return '⚠️ Deve estar entre -180 e 180'
+                            return '✅ Longitude válida'
+                          })()}
+                        </p>
+                      )}
                     </div>
+                  </div>
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      <strong>⚠️ Importante:</strong> Latitude e Longitude são obrigatórias para que a entidade apareça no mapa. 
+                      Se não preencher, a entidade será criada mas não será exibida no mapa.
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="endereco">Endereço</Label>
@@ -313,9 +540,137 @@ export default function NovaEntidadePage() {
                       <Input
                         id="cep"
                         value={formData.cep}
-                        onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, cep: maskCEP(e.target.value) })}
+                        placeholder="00000-000"
+                        maxLength={9}
                       />
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Foto de Perfil */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Foto de Perfil</CardTitle>
+                  <CardDescription>Imagem que será exibida no perfil da entidade</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fotoPerfilUrl">Foto de Perfil</Label>
+                    
+                    {/* Upload de arquivo */}
+                    <div className="flex gap-2">
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+
+                            // Validar tipo de arquivo
+                            if (!file.type.startsWith('image/')) {
+                              toast({
+                                title: 'Erro',
+                                description: 'Por favor, selecione um arquivo de imagem.',
+                                variant: 'destructive',
+                              })
+                              return
+                            }
+
+                            // Validar tamanho (máximo 5MB)
+                            if (file.size > 5 * 1024 * 1024) {
+                              toast({
+                                title: 'Erro',
+                                description: 'A imagem deve ter no máximo 5MB.',
+                                variant: 'destructive',
+                              })
+                              return
+                            }
+
+                            setUploadingFoto(true)
+                            try {
+                              // Criar preview local para mostrar ao usuário
+                              const reader = new FileReader()
+                              reader.onloadend = () => {
+                                setFormData((prev) => ({ 
+                                  ...prev, 
+                                  fotoPerfilUrl: reader.result as string
+                                }))
+                                setFotoFile(file) // Armazenar arquivo separadamente
+                              }
+                              reader.readAsDataURL(file)
+                              
+                              toast({
+                                title: 'Foto selecionada',
+                                description: 'A foto será enviada após criar a entidade.',
+                              })
+                            } catch (error: any) {
+                              console.error('Erro ao preparar foto:', error)
+                              toast({
+                                title: 'Erro',
+                                description: error.message || 'Erro ao preparar foto',
+                                variant: 'destructive',
+                              })
+                            } finally {
+                              setUploadingFoto(false)
+                            }
+                          }}
+                          className="hidden"
+                          id="upload-foto-perfil"
+                          disabled={uploadingFoto}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          disabled={uploadingFoto}
+                          onClick={() => document.getElementById('upload-foto-perfil')?.click()}
+                        >
+                          {uploadingFoto ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processando...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Selecionar Foto
+                            </>
+                          )}
+                        </Button>
+                      </label>
+                    </div>
+
+                    {/* Ou adicionar por URL */}
+                    <div>
+                      <Input
+                        id="fotoPerfilUrl"
+                        type="url"
+                        value={formData.fotoPerfilUrl || ''}
+                        onChange={(e) =>
+                          setFormData({ ...formData, fotoPerfilUrl: e.target.value })
+                        }
+                        placeholder="Ou cole a URL da foto"
+                        className="mt-1"
+                      />
+                    </div>
+
+                    {/* Preview da foto */}
+                    {formData.fotoPerfilUrl && (
+                      <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200">
+                        <img
+                          src={formData.fotoPerfilUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Se a imagem falhar ao carregar, limpar a URL
+                            setFormData((prev) => ({ ...prev, fotoPerfilUrl: '' }))
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -333,7 +688,9 @@ export default function NovaEntidadePage() {
                       <Input
                         id="telefone"
                         value={formData.telefone}
-                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, telefone: maskPhone(e.target.value) })}
+                        placeholder="(00) 00000-0000"
+                        maxLength={15}
                       />
                     </div>
                     <div>

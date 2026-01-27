@@ -91,6 +91,7 @@ export function sanitizePhone(phone: string): string | null {
 
 /**
  * Sanitiza um objeto removendo propriedades perigosas
+ * Agora processa objetos aninhados recursivamente
  */
 export function sanitizeObject<T extends Record<string, unknown>>(obj: T): Partial<T> {
   const sanitized: Partial<T> = {}
@@ -112,6 +113,18 @@ export function sanitizeObject<T extends Record<string, unknown>>(obj: T): Parti
     } else if (value === null || value === undefined) {
       // Mantém null/undefined
       sanitized[key as keyof T] = value as T[keyof T]
+    } else if (Array.isArray(value)) {
+      // Processa arrays recursivamente
+      sanitized[key as keyof T] = value.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          return sanitizeObject(item as Record<string, unknown>)
+        }
+        return item
+      }) as T[keyof T]
+    } else if (typeof value === 'object' && value !== null) {
+      // Processa objetos aninhados recursivamente
+      // IMPORTANTE: Preserva objetos aninhados como localizacao, contato, etc.
+      sanitized[key as keyof T] = sanitizeObject(value as Record<string, unknown>) as T[keyof T]
     }
   }
   
