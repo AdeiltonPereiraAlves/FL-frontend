@@ -125,7 +125,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = localStorage.getItem(STORAGE_KEY)
       if (data) {
-        setCarrinho(JSON.parse(data))
+        const carrinhoData = JSON.parse(data)
+        // Garantir que todos os preços sejam números
+        const carrinhoNormalizado = carrinhoData.map((item: any) => ({
+          ...item,
+          precoFinal: Number(item.precoFinal || 0),
+          quantidade: Number(item.quantidade || 1),
+        }))
+        setCarrinho(carrinhoNormalizado)
       }
     } catch (err) {
       console.error('Erro ao carregar carrinho', err)
@@ -141,15 +148,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCarrinho((prev) => {
       const existente = prev.find((p) => p.id === item.id)
 
+      // Garantir que precoFinal seja sempre um número
+      const precoFinal = Number(item.precoFinal || 0)
+
       if (existente) {
         return prev.map((p) =>
           p.id === item.id
-            ? { ...p, quantidade: p.quantidade + 1 }
+            ? { ...p, quantidade: p.quantidade + 1, precoFinal: precoFinal }
             : p
         )
       }
 
-      return [...prev, { ...item, quantidade: 1 }]
+      return [...prev, { ...item, quantidade: 1, precoFinal: precoFinal }]
     })
   }
 
@@ -175,7 +185,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }
 
   const total = carrinho.reduce(
-    (acc, item) => acc + item.precoFinal * item.quantidade,
+    (acc, item) => acc + Number(item.precoFinal || 0) * Number(item.quantidade || 0),
     0
   )
 

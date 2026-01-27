@@ -1,6 +1,5 @@
 'use client'
 
-import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/button'
 import { PackageX } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,6 +9,8 @@ import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { BannerCarousel } from '@/components/banner/BannerCarousel'
 import { LoadingSpinner, LoadingSkeleton } from '@/components/ui/LoadingSpinner'
+import { DynamicContent } from '@/components/navigation/DynamicContent'
+import { useNavigation } from '@/contexts/NavigationContext'
 
 const Map = dynamic(() => import('@/components/mapa/MapaEntidades'), {
   ssr: false,
@@ -29,6 +30,7 @@ interface SavedSearchState {
 export default function HomePage() {
   const { isAuthenticated } = useAuth()
   const searchParams = useSearchParams()
+  const { state: navState } = useNavigation()
 
   const [cidadeId, setCidadeId] = useState('')
   const [busca, setBusca] = useState('')
@@ -281,10 +283,13 @@ export default function HomePage() {
     }
   }, [busca, produtos.length])
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
+  // Se estiver visualizando uma loja, não mostrar conteúdo da home
+  if (navState.currentView === 'loja') {
+    return <DynamicContent />
+  }
 
+  return (
+    <>
       {/* Carrossel de Banners */}
       <section className="py-2 sm:py-2 md:py-2">
         {/* Mobile: full width, Desktop: com container */}
@@ -336,7 +341,7 @@ export default function HomePage() {
 
       {/* MAPA — SEMPRE VISÍVEL */}
       {!cidadesApi.isLoading && (
-        <section className="py-2 sm:py-2 md:py-3 lg:py-4">
+        <section id="mapa-container" className="py-2 sm:py-2 md:py-3 lg:py-4">
           <div className="px-2 sm:px-4 md:px-8 lg:px-16">
             {entidadesApi.isLoading && !busca.trim() && produtos.length === 0 ? (
               <div className="relative w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">
@@ -353,6 +358,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-    </div>
+    </>
   )
 }

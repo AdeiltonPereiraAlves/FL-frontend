@@ -15,18 +15,31 @@ import { Store, Mail, Lock, Loader2, AlertCircle } from 'lucide-react'
 // Função helper para determinar o redirecionamento baseado no papel do usuário
 function getRedirectPath(user: any): string {
   if (!user?.papeis || !Array.isArray(user.papeis)) {
-    return '/dashboard'
+    // Se não tem papéis definidos, assume cliente e vai para home
+    return '/'
   }
 
   const papeis = user.papeis.map((p: any) => p.tipo)
   const isDono = papeis.includes('DONO_SISTEMA')
   const isAdminUser = papeis.includes('ADMIN')
+  const isLojista = papeis.includes('LOJISTA')
+  const isCliente = papeis.includes('CLIENTE')
 
   if (isDono || isAdminUser) {
     return '/admin/dashboard'
   }
 
-  return '/dashboard'
+  if (isLojista) {
+    return '/lojista/dashboard'
+  }
+
+  // Cliente ou usuário sem papel específico vai para home
+  if (isCliente || papeis.length === 0) {
+    return '/'
+  }
+
+  // Fallback: home
+  return '/'
 }
 
 export default function LoginPage() {
@@ -61,10 +74,10 @@ export default function LoginPage() {
           const redirectPath = getRedirectPath(userData)
           router.push(redirectPath)
         } catch {
-          router.push('/dashboard')
+          router.push('/')
         }
       } else {
-        router.push('/dashboard')
+        router.push('/')
       }
     } catch {
       setError('Credenciais inválidas. Tente novamente.')
@@ -180,10 +193,10 @@ export default function LoginPage() {
                         const redirectPath = getRedirectPath(userData)
                         router.push(redirectPath)
                       } catch {
-                        router.push('/dashboard')
+                        router.push('/')
                       }
                     } else {
-                      router.push('/dashboard')
+                      router.push('/')
                     }
                   } catch {
                     setError('Falha no login com Google')

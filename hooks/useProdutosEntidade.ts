@@ -68,9 +68,27 @@ export function useProdutosEntidade() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await api.post<{ produto: ProdutoEntidade }>(`/admin/entidades/${entidadeId}/produtos`, dados)
-      // O endpoint retorna { produto: ... } ou apenas o produto
-      return response.produto || response
+      const response = await api.post<{ produto: any; mensagem?: string }>(`/admin/entidades/${entidadeId}/produtos`, dados)
+      // O endpoint retorna { produto: ..., mensagem: ... }
+      const produtoRetornado = response.produto || response
+      
+      // Formatar produto para o formato esperado pela lista
+      const produtoFormatado: any = {
+        id: produtoRetornado.id,
+        nome: produtoRetornado.nome,
+        descricao: produtoRetornado.descricao,
+        ativo: produtoRetornado.ativo,
+        visivel: produtoRetornado.visivel,
+        destaque: produtoRetornado.destaque,
+        categoria: produtoRetornado.categoria,
+        foto: produtoRetornado.fotos?.[0]?.url || produtoRetornado.foto || null,
+        precoAtual: produtoRetornado.precoAtual ? Number(produtoRetornado.precoAtual) : null,
+        precoDesconto: produtoRetornado.precoDesconto ? Number(produtoRetornado.precoDesconto) : null,
+        emPromocao: produtoRetornado.emPromocao || false,
+        criadoEm: produtoRetornado.criadoEm,
+      }
+      
+      return produtoFormatado
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar produto'
       setError(errorMessage)
@@ -84,8 +102,26 @@ export function useProdutosEntidade() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await api.put<ProdutoEntidade>(`/admin/produtos/${produtoId}`, dados)
-      return data
+      const response = await api.put<{ produto: any; mensagem?: string }>(`/admin/produtos/${produtoId}`, dados)
+      const produtoRetornado = response.produto || response
+      
+      // Formatar produto para o formato esperado pela lista
+      const produtoFormatado: any = {
+        id: produtoRetornado.id,
+        nome: produtoRetornado.nome,
+        descricao: produtoRetornado.descricao,
+        ativo: produtoRetornado.ativo,
+        visivel: produtoRetornado.visivel,
+        destaque: produtoRetornado.destaque,
+        categoria: produtoRetornado.categoria,
+        foto: produtoRetornado.fotos?.[0]?.url || produtoRetornado.foto || null,
+        precoAtual: produtoRetornado.precoAtual ? Number(produtoRetornado.precoAtual) : null,
+        precoDesconto: produtoRetornado.precoDesconto ? Number(produtoRetornado.precoDesconto) : null,
+        emPromocao: produtoRetornado.emPromocao || false,
+        criadoEm: produtoRetornado.criadoEm,
+      }
+      
+      return produtoFormatado
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar produto'
       setError(errorMessage)

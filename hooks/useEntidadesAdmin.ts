@@ -147,6 +147,38 @@ export function useEntidadesAdmin() {
     }
   }, [api])
 
+  const atualizarPlanoEntidade = useCallback(async (
+    entidadeId: string,
+    tipo: 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX',
+    nivel: number
+  ) => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await api.put<{ mensagem: string; entidade: EntidadeAdmin }>(
+        `/entidade/${entidadeId}/plano`,
+        { tipo, nivel }
+      )
+      
+      // Atualizar a entidade na lista local
+      setEntidades((prev) =>
+        prev.map((ent) =>
+          ent.id === entidadeId
+            ? { ...ent, plano: tipo }
+            : ent
+        )
+      )
+      
+      return response.entidade
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar plano da entidade'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [api])
+
   return {
     entidades,
     paginacao,
@@ -156,5 +188,6 @@ export function useEntidadesAdmin() {
     buscarEntidadePorId,
     atualizarEntidade,
     alterarStatusEntidade,
+    atualizarPlanoEntidade,
   }
 }

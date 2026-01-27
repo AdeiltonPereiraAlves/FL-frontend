@@ -14,6 +14,7 @@ import {
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
+// Menu simplificado - apenas banners com preços
 const menuItems = [
   {
     title: 'Dashboard',
@@ -26,12 +27,7 @@ const menuItems = [
     icon: Building2,
   },
   {
-    title: 'Gerenciar Usuários',
-    href: '/admin/usuarios',
-    icon: Users,
-  },
-  {
-    title: 'Planos',
+    title: 'Planos e Preços',
     href: '/admin/planos',
     icon: CreditCard,
   },

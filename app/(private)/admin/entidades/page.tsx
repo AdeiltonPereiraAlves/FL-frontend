@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
-import { Loader2, Plus, Search, Edit, Package, Building2, Filter } from 'lucide-react'
+import { Loader2, Plus, Search, Edit, Package, Building2, Filter, Save, X } from 'lucide-react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -19,8 +20,17 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useEntidadesAdmin } from '@/hooks/useEntidadesAdmin'
 import { useApiContext } from '@/contexts/ApiContext'
+import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
 import {
   Select,
@@ -62,7 +72,8 @@ export default function AdminEntidadesPage() {
   const { isDonoSistema, isAdmin } = useRole()
   const router = useRouter()
   const api = useApiContext()
-  const { listarEntidades, entidades, paginacao, isLoading } = useEntidadesAdmin()
+  const { toast } = useToast()
+  const { listarEntidades, entidades, paginacao, isLoading, atualizarPlanoEntidade } = useEntidadesAdmin()
 
   const [nomeBusca, setNomeBusca] = useState('') // Estado separado para busca com debounce
   const [filtros, setFiltros] = useState({
@@ -74,6 +85,14 @@ export default function AdminEntidadesPage() {
     limit: 20,
   })
   const [cidades, setCidades] = useState<Array<{ id: string; nome: string; estado: string }>>([])
+  const [planosDisponiveis, setPlanosDisponiveis] = useState<Array<{ id: string; nome: string; descricao?: string; preco?: number | null }>>([])
+  const [modalPlanoAberto, setModalPlanoAberto] = useState(false)
+  const [entidadeSelecionada, setEntidadeSelecionada] = useState<Entidade | null>(null)
+  const [planoSelecionado, setPlanoSelecionado] = useState<{ tipo: string; nivel: number }>({
+    tipo: 'FREE',
+    nivel: 0,
+  })
+  const [salvandoPlano, setSalvandoPlano] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -95,6 +114,20 @@ export default function AdminEntidadesPage() {
       }
     }
     carregarCidades()
+  }, [api])
+
+  // Carregar planos disponíveis do banco
+  useEffect(() => {
+    const carregarPlanos = async () => {
+      if (!api) return
+      try {
+        const response = await api.get('/planos')
+        setPlanosDisponiveis(response || [])
+      } catch (error) {
+        console.error('Erro ao carregar planos:', error)
+      }
+    }
+    carregarPlanos()
   }, [api])
 
   // Debounce para busca por nome (aguarda 500ms após parar de digitar)
@@ -328,7 +361,23 @@ export default function AdminEntidadesPage() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{entidade.plano}</Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">{entidade.plano}</Badge>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEntidadeSelecionada(entidade)
+                                    setPlanoSelecionado({
+                                      tipo: entidade.plano as 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX',
+                                      nivel: 0,
+                                    })
+                                    setModalPlanoAberto(true)
+                                  }}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
@@ -405,6 +454,222 @@ export default function AdminEntidadesPage() {
           </motion.div>
         </main>
       </div>
+
+      {/* Modal de Edição de Plano */}
+      <Dialog open={modalPlanoAberto} onOpenChange={setModalPlanoAberto}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Alterar Plano da Entidade</DialogTitle>
+            <DialogDescription>
+              {entidadeSelecionada && (
+                <>
+                  Alterando o plano de <strong>{entidadeSelecionada.nome}</strong>
+                  <br />
+                  Plano atual: <strong>{entidadeSelecionada.plano}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {entidadeSelecionada && (
+            <div className="space-y-4 py-4">
+              {/* Seleção do Tipo de Plano */}
+              <div className="space-y-2">
+                <Label htmlFor="tipo-plano">Tipo de Plano *</Label>
+                <Select
+                  value={planoSelecionado.tipo}
+                  onValueChange={(value) =>
+                    setPlanoSelecionado({
+                      ...planoSelecionado,
+                      tipo: value as 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX',
+                    })
+                  }
+                >
+                  <SelectTrigger id="tipo-plano">
+                    <SelectValue placeholder="Selecione o tipo de plano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {planosDisponiveis.length > 0 ? (
+                      planosDisponiveis.map((plano) => {
+                        const getBadgeColor = (nome: string) => {
+                          if (nome.includes('PREMIUM')) return 'bg-yellow-100 text-yellow-800'
+                          if (nome.includes('PREMIUM') || nome === 'PREMIUM') return 'bg-purple-100 text-purple-800'
+                          if (nome === 'FREE') return 'bg-gray-100 text-gray-800'
+                          return ''
+                        }
+                        return (
+                          <SelectItem key={plano.id} value={plano.nome}>
+                            <div className="flex items-center justify-between w-full">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{plano.nome}</span>
+                                {plano.descricao && (
+                                  <span className="text-xs text-muted-foreground">
+                                    - {plano.descricao}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 ml-4">
+                                {plano.preco ? (
+                                  <Badge variant="outline" className={getBadgeColor(plano.nome)}>
+                                    R$ {plano.preco.toFixed(2)}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className={getBadgeColor(plano.nome)}>
+                                    Gratuito
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        )
+                      })
+                    ) : (
+                      // Fallback se não houver planos carregados
+                      <>
+                        <SelectItem value="FREE">FREE - Gratuito</SelectItem>
+                        <SelectItem value="BASICO">BASICO</SelectItem>
+                        <SelectItem value="PREMIUM">PREMIUM</SelectItem>
+                        <SelectItem value="PREMIUM_MAX">PREMIUM_MAX</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seleção do Nível */}
+              <div className="space-y-2">
+                <Label htmlFor="nivel-plano">Nível (0-3) *</Label>
+                <Input
+                  id="nivel-plano"
+                  type="number"
+                  min="0"
+                  max="3"
+                  value={planoSelecionado.nivel}
+                  onChange={(e) =>
+                    setPlanoSelecionado({
+                      ...planoSelecionado,
+                      nivel: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="Digite o nível (0-3)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  O nível determina as funcionalidades disponíveis no plano (0 = básico, 3 = máximo)
+                </p>
+              </div>
+
+              {/* Preview do Plano Selecionado */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                <p className="text-sm font-semibold mb-2">Plano Selecionado:</p>
+                {(() => {
+                  const planoInfo = planosDisponiveis.find(p => p.nome === planoSelecionado.tipo)
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-base">
+                          {planoSelecionado.tipo}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          Nível {planoSelecionado.nivel}
+                        </span>
+                      </div>
+                      {planoInfo && (
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {planoInfo.descricao && (
+                            <p>{planoInfo.descricao}</p>
+                          )}
+                          {planoInfo.preco ? (
+                            <p className="font-semibold text-foreground">
+                              Preço: R$ {planoInfo.preco.toFixed(2)}
+                            </p>
+                          ) : (
+                            <p className="font-semibold text-green-600">Gratuito</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setModalPlanoAberto(false)
+                setEntidadeSelecionada(null)
+                setPlanoSelecionado({ tipo: 'FREE', nivel: 0 })
+              }}
+              disabled={salvandoPlano}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!entidadeSelecionada) return
+
+                setSalvandoPlano(true)
+                try {
+                  // Validar se o plano existe no banco
+                  const planoExiste = planosDisponiveis.find(p => p.nome === planoSelecionado.tipo)
+                  if (!planoExiste && planosDisponiveis.length > 0) {
+                    throw new Error(`Plano "${planoSelecionado.tipo}" não encontrado no banco de dados`)
+                  }
+
+                  await atualizarPlanoEntidade(
+                    entidadeSelecionada.id,
+                    planoSelecionado.tipo,
+                    planoSelecionado.nivel
+                  )
+                  toast({
+                    title: 'Plano atualizado!',
+                    description: `O plano da entidade "${entidadeSelecionada.nome}" foi alterado para ${planoSelecionado.tipo} (nível ${planoSelecionado.nivel}).`,
+                  })
+                  setModalPlanoAberto(false)
+                  setEntidadeSelecionada(null)
+                  setPlanoSelecionado({ tipo: 'FREE', nivel: 0 })
+                  
+                  // Recarregar lista
+                  await listarEntidades({
+                    nome: filtros.nome || undefined,
+                    cidadeId: filtros.cidadeId || undefined,
+                    status: filtros.status as any,
+                    tipoPlano: filtros.tipoPlano || undefined,
+                    page: filtros.page,
+                    limit: filtros.limit,
+                  })
+                } catch (error: any) {
+                  console.error('Erro ao atualizar plano:', error)
+                  toast({
+                    title: 'Erro ao atualizar plano',
+                    description: error.message || 'Ocorreu um erro ao atualizar o plano.',
+                    variant: 'destructive',
+                  })
+                } finally {
+                  setSalvandoPlano(false)
+                }
+              }}
+              disabled={salvandoPlano}
+              className="bg-[#15803D] hover:bg-[#15803D]/90"
+            >
+              {salvandoPlano ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Salvar Plano
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
+import { useNavigation } from '@/contexts/NavigationContext'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 
@@ -13,6 +14,7 @@ interface Props {
 export default function Carrinho({ onClose, onAbrirProduto }: Props) {
   const { carrinho, alterarQuantidade, remover, total } = useCart()
   const router = useRouter()
+  const { navigateToCheckout } = useNavigation()
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -90,10 +92,10 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
 
                   <div className="text-right">
                     <p className="font-bold text-[#16A34A]">
-                      R$ {(item.precoFinal * item.quantidade).toFixed(2)}
+                      R$ {(Number(item.precoFinal || 0) * item.quantidade).toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      R$ {item.precoFinal.toFixed(2)} cada
+                      R$ {Number(item.precoFinal || 0).toFixed(2)} cada
                     </p>
                   </div>
           </div>
@@ -130,7 +132,7 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
                   console.error('Erro ao salvar estado para checkout:', err)
                 }
               }
-              router.push('/checkout')
+              navigateToCheckout()
               onClose()
             }}
             className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold"

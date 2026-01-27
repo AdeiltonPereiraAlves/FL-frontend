@@ -139,23 +139,41 @@ export default function ProdutosEntidadePage() {
     if (!entidadeId) return
     setSalvando(true)
     try {
+      let produtoSalvo: any = null
+      
       if (viewMode === 'create') {
-        await criarProduto(entidadeId, dados)
+        produtoSalvo = await criarProduto(entidadeId, dados)
         toast({
           title: 'Sucesso!',
           description: 'Produto criado com sucesso',
         })
+        
+        // Atualização otimista: adicionar produto à lista imediatamente
+        if (produtoSalvo) {
+          setProdutos((prev) => [produtoSalvo, ...prev])
+        }
       } else if (viewMode === 'edit' && produtoEditandoId) {
-        await atualizarProduto(produtoEditandoId, dados)
+        produtoSalvo = await atualizarProduto(produtoEditandoId, dados)
         toast({
           title: 'Sucesso!',
           description: 'Produto atualizado com sucesso',
         })
+        
+        // Atualização otimista: atualizar produto na lista imediatamente
+        if (produtoSalvo) {
+          setProdutos((prev) =>
+            prev.map((p) => (p.id === produtoEditandoId ? produtoSalvo : p))
+          )
+        }
       }
       
-      // Recarregar lista e voltar para visualização
-      await carregarDados()
+      // Voltar para lista imediatamente (sem esperar recarregar tudo)
       handleVoltarLista()
+      
+      // Recarregar dados em background para garantir sincronização
+      carregarDados().catch((err) => {
+        console.error('Erro ao recarregar dados em background:', err)
+      })
     } catch (error: any) {
       console.error('Erro ao salvar produto:', error)
       toast({
@@ -167,14 +185,6 @@ export default function ProdutosEntidadePage() {
     } finally {
       setSalvando(false)
     }
-  }
-
-  if (authLoading || produtosLoading || !entidade) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#15803D]" />
-      </div>
-    )
   }
 
   if (!isAuthenticated || (!isDonoSistema() && !isAdmin())) {
@@ -192,29 +202,52 @@ export default function ProdutosEntidadePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* Header sempre visível */}
+            {/* Header sempre visível com botão voltar */}
             <div className="mb-6">
-              <Link href="/admin/entidades">
-                <Button variant="ghost" className="mb-4">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Voltar
-                </Button>
-              </Link>
+              <div className="flex items-center gap-4 mb-4">
+                <Link href="/admin/entidades">
+                  <Button variant="ghost" size="sm">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar para Entidades
+                  </Button>
+                </Link>
+                {viewMode !== 'list' && (
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={handleVoltarLista}
+                    disabled={salvando}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar para Lista
+                  </Button>
+                )}
+              </div>
+              
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                    <Package className="h-8 w-8 text-[#15803D]" />
-                    Produtos de {entidade.nome}
-                  </h1>
-                  <p className="mt-1 text-muted-foreground">
-                    {viewMode === 'list' 
-                      ? 'Gerencie os produtos desta entidade'
-                      : viewMode === 'create'
-                      ? 'Crie um novo produto'
-                      : 'Edite as informações do produto'}
-                  </p>
+                  {authLoading || produtosLoading || !entidade ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-[#15803D]" />
+                      <h1 className="text-3xl font-bold text-foreground">Carregando...</h1>
+                    </div>
+                  ) : (
+                    <>
+                      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+                        <Package className="h-8 w-8 text-[#15803D]" />
+                        Produtos de {entidade.nome}
+                      </h1>
+                      <p className="mt-1 text-muted-foreground">
+                        {viewMode === 'list' 
+                          ? 'Gerencie os produtos desta entidade'
+                          : viewMode === 'create'
+                          ? 'Crie um novo produto'
+                          : 'Edite as informações do produto'}
+                      </p>
+                    </>
+                  )}
                 </div>
-                {viewMode === 'list' && (
+                {viewMode === 'list' && !authLoading && !produtosLoading && entidade && (
                   <Button 
                     className="bg-[#15803D] hover:bg-[#15803D]/90"
                     onClick={handleCriarProduto}
@@ -223,37 +256,38 @@ export default function ProdutosEntidadePage() {
                     Novo Produto
                   </Button>
                 )}
-                {viewMode !== 'list' && (
-                  <Button 
-                    variant="outline"
-                    onClick={handleVoltarLista}
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancelar
-                  </Button>
-                )}
               </div>
             </div>
 
             {/* Conteúdo com animação de transição */}
-            <AnimatePresence mode="wait">
-              {viewMode === 'list' ? (
-                <motion.div
-                  key="list"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Produtos ({produtos.length})</CardTitle>
-                      <CardDescription>
-                        Lista de todos os produtos desta entidade
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {produtos.length === 0 ? (
+            {authLoading || produtosLoading || !entidade ? (
+              <Card>
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#15803D] mx-auto mb-4" />
+                    <p className="text-muted-foreground">Carregando dados...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <AnimatePresence mode="wait">
+                {viewMode === 'list' ? (
+                  <motion.div
+                    key="list"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Produtos ({produtos.length})</CardTitle>
+                        <CardDescription>
+                          Lista de todos os produtos desta entidade
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {produtos.length === 0 ? (
                         <div className="text-center py-12">
                           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                           <p className="text-muted-foreground mb-4">Nenhum produto cadastrado</p>
@@ -282,10 +316,19 @@ export default function ProdutosEntidadePage() {
                               {produtos.map((produto) => (
                                 <TableRow key={produto.id}>
                                   <TableCell>
-                                    {produto.fotos && produto.fotos.length > 0 ? (
+                                    {produto.foto ? (
                                       <div className="relative w-16 h-16 rounded-md overflow-hidden">
                                         <Image
-                                          src={produto.fotos[0].url}
+                                          src={produto.foto}
+                                          alt={produto.nome}
+                                          fill
+                                          className="object-cover"
+                                        />
+                                      </div>
+                                    ) : produto.fotos && produto.fotos.length > 0 ? (
+                                      <div className="relative w-16 h-16 rounded-md overflow-hidden">
+                                        <Image
+                                          src={produto.fotos[0].url || produto.fotos[0]}
                                           alt={produto.nome}
                                           fill
                                           className="object-cover"
@@ -301,13 +344,13 @@ export default function ProdutosEntidadePage() {
                                     {produto.nome}
                                   </TableCell>
                                   <TableCell>
-                                    {produto.emPromocao && produto.precoAntigo ? (
+                                    {produto.emPromocao && produto.precoDesconto ? (
                                       <div className="flex flex-col">
                                         <span className="text-sm text-muted-foreground line-through">
-                                          R$ {produto.precoAntigo.toFixed(2)}
+                                          R$ {produto.precoAtual?.toFixed(2) || '0.00'}
                                         </span>
                                         <span className="font-semibold text-[#15803D]">
-                                          R$ {produto.precoAtual?.toFixed(2) || '0.00'}
+                                          R$ {produto.precoDesconto?.toFixed(2) || '0.00'}
                                         </span>
                                       </div>
                                     ) : (
@@ -434,7 +477,7 @@ export default function ProdutosEntidadePage() {
                       onCancel={handleVoltarLista}
                       isLoading={salvando}
                     />
-                  ) : (
+                  ) : viewMode === 'edit' ? (
                     <Card>
                       <CardContent className="py-12">
                         <div className="text-center">
@@ -443,10 +486,11 @@ export default function ProdutosEntidadePage() {
                         </div>
                       </CardContent>
                     </Card>
-                  )}
+                  ) : null}
                 </motion.div>
               )}
-            </AnimatePresence>
+              </AnimatePresence>
+            )}
           </motion.div>
         </main>
       </div>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
-import { Header } from '@/components/Header'
 import { useEntidades } from '@/hooks/useEntidades'
 import { useApiContext } from '@/contexts/ApiContext'
 import { Button } from '@/components/ui/button'
@@ -171,7 +170,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
             <LoadingSkeleton className="h-10 w-64 mb-4" />
@@ -198,7 +196,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   if (error && !loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center max-w-md px-4">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-4">
@@ -225,7 +222,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   if (!entidade && !loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Loja não encontrada</h1>
@@ -241,8 +237,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-
       {/* Botão Voltar - Se veio de uma página de produto ou admin */}
       {(paginaAnterior || isAdminMode) && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">

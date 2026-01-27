@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
-import { Header } from '@/components/Header'
 import { useProdutos } from '@/hooks/useProdutos'
 import { useCart } from '@/contexts/CartContext'
 import { Button } from '@/components/ui/button'
@@ -133,7 +132,6 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-6">
             <LoadingSkeleton className="h-10 w-32 mb-4" />
@@ -166,7 +164,6 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
   if (!produto) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Produto não encontrado</h1>
@@ -183,8 +180,6 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Botão Voltar */}
         <Button 

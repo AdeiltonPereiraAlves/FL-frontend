@@ -150,6 +150,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useNavigation } from '@/contexts/NavigationContext'
 import { RecenterMap } from './RecenterMap'
 import { createEntityDivIcon } from './createEntityDivIcon'
 import ProdutoDetalhes from './../produto/ProdutoDetalhe'
@@ -177,6 +178,7 @@ export default function MapaEntidades({
   isLoading = false,
 }: Props) {
   const router = useRouter()
+  const { navigateToLoja } = useNavigation()
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
   const [carrinhoAberto, setCarrinhoAberto] = useState(false)
   const [filtroMenorPreco, setFiltroMenorPreco] = useState(false)
@@ -339,8 +341,8 @@ export default function MapaEntidades({
         sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
       }
       
-      // Navegação segura usando Next.js router
-      router.push(`/loja/${sanitizedId}`)
+      // Navegação client-side sem reload usando NavigationContext
+      navigateToLoja(sanitizedId)
     }
 
     // Clique no nome da entidade para mostrar/esconder botão

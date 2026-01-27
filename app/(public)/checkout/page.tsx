@@ -1,8 +1,8 @@
 'use client'
 
-import { Header } from '@/components/Header'
 import { useCart } from '@/contexts/CartContext'
 import { useApiContext } from '@/contexts/ApiContext'
+import { useNavigation } from '@/contexts/NavigationContext'
 import { Button } from '@/components/ui/button'
 import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, FileText, AlertCircle, CheckCircle, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
@@ -26,9 +26,13 @@ export default function CheckoutPage() {
   const { carrinho, alterarQuantidade, remover, total, limpar } = useCart()
   const router = useRouter()
   const api = useApiContext()
+  const { goBack, canGoBack } = useNavigation()
   
-  // Página anterior para voltar dinamicamente
+  // Página anterior para voltar dinamicamente (fallback)
   const [paginaAnterior, setPaginaAnterior] = useState<string>('/')
+  
+  // Estado para dados completos das entidades
+  const [entidadesCompletas, setEntidadesCompletas] = useState<Record<string, any>>({})
   
   // Estado do formulário
   const [dadosCliente, setDadosCliente] = useState({
@@ -39,14 +43,44 @@ export default function CheckoutPage() {
     referencia: '',
   })
 
-  // Carregar página anterior do sessionStorage
+  // Carregar dados completos das entidades do backend
+  useEffect(() => {
+    const carregarDadosEntidades = async () => {
+      const lojaIds = [...new Set(carrinho.map((item: any) => item.entidade?.id).filter(Boolean))]
+      
+      for (const lojaId of lojaIds) {
+        // Verificar se já temos dados completos
+        const itemComLoja = carrinho.find((item: any) => item.entidade?.id === lojaId)
+        if (itemComLoja?.entidade?.fazEntrega !== undefined && itemComLoja?.entidade?.valorMinimoEntrega !== undefined) {
+          continue // Já tem dados completos
+        }
+        
+        try {
+          const entidadeData = await api.get(`/entidade/${lojaId}`)
+          if (entidadeData) {
+            setEntidadesCompletas((prev) => ({
+              ...prev,
+              [lojaId]: entidadeData,
+            }))
+          }
+        } catch (error) {
+          console.error(`Erro ao carregar dados da entidade ${lojaId}:`, error)
+        }
+      }
+    }
+    
+    if (carrinho.length > 0) {
+      carregarDadosEntidades()
+    }
+  }, [carrinho, api])
+  
+  // Carregar página anterior do sessionStorage (fallback)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const returnUrl = sessionStorage.getItem('checkoutReturnUrl')
       if (returnUrl) {
         setPaginaAnterior(returnUrl)
       } else {
-        // Se não houver URL salva, tenta usar o referrer do navegador
         const referrer = document.referrer
         if (referrer && referrer.includes(window.location.origin)) {
           const referrerPath = new URL(referrer).pathname
@@ -186,7 +220,6 @@ export default function CheckoutPage() {
   if (carrinho.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="max-w-4xl mx-auto px-4 py-16">
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <ShoppingBag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -197,7 +230,13 @@ export default function CheckoutPage() {
               Adicione produtos ao carrinho para continuar
             </p>
             <Button 
-              onClick={() => router.push(paginaAnterior)}
+              onClick={() => {
+                if (canGoBack()) {
+                  goBack()
+                } else {
+                  router.push(paginaAnterior)
+                }
+              }}
               className="bg-[#16A34A] hover:bg-[#15803D] text-white"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -209,18 +248,26 @@ export default function CheckoutPage() {
     )
   }
 
-  // Agrupar por loja e calcular totais
+  // Agrupar por loja e calcular totais, usando dados completos quando disponíveis
   const itensPorLoja = carrinho.reduce((acc: any, item: any) => {
     const lojaId = item.entidade?.id
     if (!acc[lojaId]) {
+      // Usar dados completos da entidade se disponíveis, senão usar dados do carrinho
+      const entidadeCompleta = entidadesCompletas[lojaId] || item.entidade
       acc[lojaId] = {
-        loja: item.entidade,
+        loja: {
+          ...item.entidade,
+          ...entidadeCompleta,
+          // Garantir que fazEntrega e valorMinimoEntrega venham dos dados completos
+          fazEntrega: entidadeCompleta.fazEntrega !== undefined ? entidadeCompleta.fazEntrega : item.entidade.fazEntrega,
+          valorMinimoEntrega: entidadeCompleta.valorMinimoEntrega !== undefined ? entidadeCompleta.valorMinimoEntrega : item.entidade.valorMinimoEntrega,
+        },
         itens: [],
         subtotal: 0,
       }
     }
     acc[lojaId].itens.push(item)
-    acc[lojaId].subtotal += item.precoFinal * item.quantidade
+    acc[lojaId].subtotal += Number(item.precoFinal || 0) * item.quantidade
     return acc
   }, {})
 
@@ -462,14 +509,19 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
           <Button 
             variant="ghost" 
             className="mb-4"
-            onClick={() => router.push(paginaAnterior)}
+            onClick={() => {
+              if (canGoBack()) {
+                goBack()
+              } else {
+                router.push(paginaAnterior)
+              }
+            }}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
