@@ -22,6 +22,7 @@ interface NavigationContextType {
   state: NavigationState
   navigateToLoja: (lojaId: string) => void
   navigateToHome: () => void
+  resetToHome: () => void
   navigateToProduto: (produtoId: string) => void
   navigateToCheckout: () => void
   navigateToProdutos: () => void
@@ -196,6 +197,40 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }, 0)
   }, [router])
 
+  // Função para resetar para home (usada quando clica na logo - limpa o histórico)
+  const resetToHome = useCallback(() => {
+    const homeItem: NavigationHistoryItem = {
+      view: 'home',
+      lojaId: null,
+      produtoId: null,
+      url: '/',
+    }
+    
+    // Resetar histórico para apenas a home
+    setHistoryStack([homeItem])
+    setState({
+      currentView: 'home',
+      lojaId: null,
+      produtoId: null,
+      previousView: null,
+    })
+    
+    // Usar router.push para navegação real no Next.js (deferido para evitar update durante render)
+    setTimeout(() => {
+      router.push('/')
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          const mapaElement = document.getElementById('mapa-container')
+          if (mapaElement) {
+            mapaElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }, 200)
+      }
+    }, 0)
+  }, [router])
+
   const navigateToCheckout = useCallback(() => {
     const newItem: NavigationHistoryItem = {
       view: 'checkout',
@@ -302,6 +337,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         state,
         navigateToLoja,
         navigateToHome,
+        resetToHome,
         navigateToProduto,
         navigateToCheckout,
         navigateToProdutos,

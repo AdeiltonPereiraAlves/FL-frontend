@@ -26,6 +26,13 @@ export interface EntidadeLocal {
     latitude: number
     longitude: number
   }
+  horario?: Array<{
+    id: string
+    diaSemana: number
+    abertura: string
+    fechamento: string
+    ativo: boolean
+  }>
 }
 
 export function useEntidades() {

@@ -208,11 +208,37 @@ export default function HomePage() {
       }
     }
 
+    const handleLimparBusca = () => {
+      console.log('🧹 [HomePage] Evento de limpar busca recebido')
+      // Limpar busca e produtos
+      setBusca('')
+      setProdutos([])
+      setEntidadesDestaqueIds([])
+      setBuscaRealizada(false)
+      setErroCidade('')
+      
+      // Recarregar entidades se houver cidade selecionada
+      if (cidadeId) {
+        console.log('🔄 [HomePage] Recarregando entidades após limpar busca')
+        entidadesApi.execute({
+          params: { cidadeId },
+        }).then((data) => {
+          if (data && Array.isArray(data)) {
+            setEntidades(data)
+          }
+        }).catch((error) => {
+          console.error('❌ [HomePage] Erro ao recarregar entidades:', error)
+        })
+      }
+    }
+
     window.addEventListener('feiralivre:buscar', handleBuscar as EventListener)
+    window.addEventListener('feiralivre:limparBusca', handleLimparBusca as EventListener)
     return () => {
       window.removeEventListener('feiralivre:buscar', handleBuscar as EventListener)
+      window.removeEventListener('feiralivre:limparBusca', handleLimparBusca as EventListener)
     }
-  }, [buscarComParametros])
+  }, [buscarComParametros, cidadeId, entidadesApi])
 
   // Definir cidade padrão quando cidades carregarem (apenas se não houver cidade restaurada)
   useEffect(() => {
@@ -284,15 +310,29 @@ export default function HomePage() {
       return
     }
     
-    if (!busca.trim()) {
-      // Se não há busca, limpar produtos para mostrar apenas entidades
-      if (produtos.length > 0) {
-        setProdutos([])
-        setEntidadesDestaqueIds([])
-        setBuscaRealizada(false)
+    // Se a busca foi limpa (estava preenchida e agora está vazia)
+    if (!busca.trim() && produtos.length > 0) {
+      console.log('🧹 [HomePage] Limpando busca - removendo produtos e voltando para entidades')
+      setProdutos([])
+      setEntidadesDestaqueIds([])
+      setBuscaRealizada(false)
+      setErroCidade('')
+      
+      // Recarregar entidades se houver cidade selecionada
+      if (cidadeId) {
+        console.log('🔄 [HomePage] Recarregando entidades após limpar busca')
+        entidadesApi.execute({
+          params: { cidadeId },
+        }).then((data) => {
+          if (data && Array.isArray(data)) {
+            setEntidades(data)
+          }
+        }).catch((error) => {
+          console.error('❌ [HomePage] Erro ao recarregar entidades:', error)
+        })
       }
     }
-  }, [busca, produtos.length])
+  }, [busca, produtos.length, cidadeId, entidadesApi])
 
   // Se estiver visualizando uma loja, não mostrar conteúdo da home
   if (navState.currentView === 'loja') {

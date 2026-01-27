@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState, use, useMemo } from 'react'
 import { useEntidades } from '@/hooks/useEntidades'
 import { useApiContext } from '@/contexts/ApiContext'
 import { Button } from '@/components/ui/button'
-import { Store, MapPin, Phone, Mail, MessageSquare, Package, ChevronLeft, ChevronRight, ArrowLeft, Edit, X, Save } from 'lucide-react'
+import { Store, MapPin, Phone, Mail, MessageSquare, Package, ChevronLeft, ChevronRight, ArrowLeft, Edit, X, Save, Clock } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/contexts/CartContext'
@@ -17,6 +17,9 @@ import { useRole } from '@/hooks/useRole'
 import { EditarEntidadeForm } from '@/components/admin/EditarEntidadeForm'
 import { DialogProdutoCompleto } from '@/components/admin/DialogProdutoCompleto'
 import { EditarProdutoInline } from '@/components/admin/EditarProdutoInline'
+import { useNavigation } from '@/contexts/NavigationContext'
+import { BackButton } from '@/components/navigation/BackButton'
+import { useCache } from '@/contexts/CacheContext'
 
 export default function LojaPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -27,6 +30,8 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const { adicionar } = useCart()
   const { isAuthenticated } = useAuth()
   const { isDonoSistema, isAdmin } = useRole()
+  const { state: navState, canGoBack } = useNavigation()
+  const cache = useCache()
   
   // Verificar se está em modo admin (vindo da página de planos)
   const isAdminMode = searchParams.get('admin') === 'true' && (isDonoSistema() || isAdmin())
@@ -43,6 +48,16 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const [carrinhoAberto, setCarrinhoAberto] = useState(false)
   const [paginaAnterior, setPaginaAnterior] = useState<string | null>(null)
   
+  // Verificar se deve mostrar botão voltar: se veio do mapa/home ou se tem página anterior no sessionStorage
+  // Usar useMemo para calcular depois que paginaAnterior for definido
+  const veioDoMapaOuHome = useMemo(() => {
+    return canGoBack() && (navState.previousView === 'home' || navState.currentView === 'loja')
+  }, [canGoBack, navState.previousView, navState.currentView])
+  
+  const deveMostrarVoltar = useMemo(() => {
+    return veioDoMapaOuHome || paginaAnterior || isAdminMode
+  }, [veioDoMapaOuHome, paginaAnterior, isAdminMode])
+  
   // Estados para modo de edição
   const [editandoEntidade, setEditandoEntidade] = useState(false)
   const [salvandoEntidade, setSalvandoEntidade] = useState(false)
@@ -57,9 +72,25 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
       setLoading(true)
       setError(null)
       try {
+        // Verificar cache primeiro
+        const cacheKey = `loja:${resolvedParams.id}`
+        const cached = cache.get<any>(cacheKey)
+        if (cached) {
+          console.log('✅ [LojaPage] Usando dados do cache')
+          setEntidade(cached)
+          setLoading(false)
+          await carregarProdutos(1)
+          return
+        }
+
         // Carregar entidade
+        console.log('🔍 [LojaPage] Buscando entidade do servidor')
         const entidadeData = await buscarEntidadePorId(resolvedParams.id)
         setEntidade(entidadeData)
+        
+        // Salvar no cache (5 minutos)
+        cache.set(cacheKey, entidadeData, 5 * 60 * 1000)
+        console.log('💾 [LojaPage] Dados salvos no cache')
 
         // Carregar produtos da entidade
         await carregarProdutos(1)
@@ -73,7 +104,7 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     }
 
     carregar()
-  }, [resolvedParams.id, buscarEntidadePorId])
+  }, [resolvedParams.id, buscarEntidadePorId, cache])
 
   // Carregar página anterior do sessionStorage
   useEffect(() => {
@@ -237,46 +268,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Botão Voltar - Se veio de uma página de produto ou admin */}
-      {(paginaAnterior || isAdminMode) && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="flex items-center gap-2">
-            {paginaAnterior && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => {
-                  router.push(paginaAnterior)
-                }}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar para o Produto
-              </Button>
-            )}
-            {isAdminMode && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  const returnUrl = sessionStorage.getItem('adminReturnUrl') || '/admin/planos'
-                  router.push(returnUrl)
-                }}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar para Planos
-              </Button>
-            )}
-            {isAdminMode && (
-              <div className="ml-auto">
-                <div className="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
-                  🔧 Modo Administrador
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Header da Loja */}
       <div className="bg-gradient-to-r from-[#16A34A] to-[#15803D] text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -375,6 +366,34 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
+      {/* Horários de Funcionamento */}
+      {entidade.horario && entidade.horario.length > 0 && (
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-start gap-3">
+              <Clock className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-2 text-sm">Horários de Funcionamento</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                  {entidade.horario.map((horario) => {
+                    const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+                    const diaNome = diasSemana[horario.diaSemana] || `Dia ${horario.diaSemana}`
+                    return (
+                      <div key={horario.id} className="flex items-center justify-between text-gray-700">
+                        <span className="font-medium">{diaNome}:</span>
+                        <span className="text-gray-600">
+                          {horario.abertura} - {horario.fechamento}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Informações de Entrega */}
       {entidade.fazEntrega !== undefined && (
         <div className="bg-blue-50 border-b border-blue-200">
@@ -414,6 +433,51 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
       {/* Lista de Produtos */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Botão Voltar - Se veio do mapa/home, de uma página de produto ou admin */}
+        {deveMostrarVoltar && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2">
+              {/* Botão voltar padrão (do NavigationContext) - aparece quando veio do mapa/home */}
+              {veioDoMapaOuHome && !paginaAnterior && !isAdminMode && (
+                <BackButton />
+              )}
+              {/* Botão voltar para produto - aparece quando veio de uma página de produto */}
+              {paginaAnterior && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    router.push(paginaAnterior)
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar para o Produto
+                </Button>
+              )}
+              {/* Botão voltar para admin - aparece quando está em modo admin */}
+              {isAdminMode && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const returnUrl = sessionStorage.getItem('adminReturnUrl') || '/admin/planos'
+                    router.push(returnUrl)
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar para Planos
+                </Button>
+              )}
+              {isAdminMode && (
+                <div className="ml-auto">
+                  <div className="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
+                    🔧 Modo Administrador
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Store className="h-6 w-6 text-[#16A34A]" />

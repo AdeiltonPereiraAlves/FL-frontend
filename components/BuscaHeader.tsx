@@ -115,7 +115,18 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
         <Input
           placeholder={isHome ? "Buscar produtos..." : "Buscar produtos ou lojas..."}
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={(e) => {
+            const newValue = e.target.value
+            const hadValue = busca.trim().length > 0
+            const hasValue = newValue.trim().length > 0
+            setBusca(newValue)
+            // Se a busca foi limpa (estava preenchida e agora está vazia), notificar
+            if (isHome && hadValue && !hasValue) {
+              // Disparar evento para limpar busca na home
+              console.log('🧹 [BuscaHeader] Busca foi limpa, disparando evento')
+              window.dispatchEvent(new CustomEvent('feiralivre:limparBusca'))
+            }
+          }}
           onKeyDown={handleKeyDown}
           className="flex-1 h-10 bg-white text-sm sm:text-base min-w-0"
         />

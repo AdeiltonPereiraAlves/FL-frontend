@@ -18,9 +18,11 @@ import Image from 'next/image'
 import { SubHeader } from './SubHeader'
 import { BuscaHeader } from './BuscaHeader'
 import { useRouter } from 'next/navigation'
+import { useNavigation } from '@/contexts/NavigationContext'
 
 export function Header() {
   const router = useRouter()
+  const { resetToHome } = useNavigation()
   const { isAuthenticated, user, logoutAndRedirect, isLoading } = useAuth()
   const { isLojista, isAdmin, isDonoSistema } = useRole()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -57,7 +59,13 @@ export function Header() {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-2 sm:px-4 md:px-6 lg:px-8 gap-2">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              resetToHome()
+            }}
+            className="flex items-center gap-1 sm:gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
+          >
             <Image
               src="/logo/logofeiralivre.png"
               alt="Feira Livre - Logo"
@@ -67,7 +75,7 @@ export function Header() {
               priority
             />
             <span className="text-lg sm:text-xl font-semibold text-white hidden sm:inline">Feira Livre</span>
-          </Link>
+          </button>
 
           {/* Busca - Na mesma linha da logo */}
           <BuscaHeader 
