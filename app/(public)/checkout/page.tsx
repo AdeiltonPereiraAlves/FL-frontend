@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { gerarPDFListaCompras } from '@/components/checkout/GerarPDF'
 import { useState, useEffect } from 'react'
+import { buscarWhatsAppEntidade, criarUrlWhatsApp } from '@/utils/whatsapp'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +59,15 @@ export default function CheckoutPage() {
         try {
           const entidadeData = await api.get(`/entidade/${lojaId}`)
           if (entidadeData) {
+            console.log(`✅ [Checkout] Dados completos da entidade ${lojaId} carregados:`, {
+              nome: entidadeData.nome,
+              temContato: !!entidadeData.contato,
+              temRedes: !!entidadeData.contato?.redes,
+              redes: entidadeData.contato?.redes,
+              whatsapp: buscarWhatsAppEntidade(entidadeData),
+              fazEntrega: entidadeData.fazEntrega,
+              valorMinimoEntrega: entidadeData.valorMinimoEntrega,
+            })
             setEntidadesCompletas((prev) => ({
               ...prev,
               [lojaId]: entidadeData,
@@ -211,10 +221,10 @@ export default function CheckoutPage() {
   }
 
   const whatsappUrl = (item: any) => {
-    const whatsapp = item.entidade?.contato?.redes?.find(
-      (r: any) => r.tipo === 'WHATSAPP'
-    )
-    return whatsapp?.url
+    // Suporta tanto item.entidade quanto item direto (quando passamos grupo.loja)
+    const entidade = item.entidade || item
+    // Usar função utilitária robusta para buscar WhatsApp
+    return buscarWhatsAppEntidade(entidade)
   }
 
   if (carrinho.length === 0) {
@@ -261,10 +271,23 @@ export default function CheckoutPage() {
           // Garantir que fazEntrega e valorMinimoEntrega venham dos dados completos
           fazEntrega: entidadeCompleta.fazEntrega !== undefined ? entidadeCompleta.fazEntrega : item.entidade.fazEntrega,
           valorMinimoEntrega: entidadeCompleta.valorMinimoEntrega !== undefined ? entidadeCompleta.valorMinimoEntrega : item.entidade.valorMinimoEntrega,
+          // Garantir que contato venha dos dados completos (importante para WhatsApp)
+          contato: entidadeCompleta.contato || item.entidade.contato,
         },
         itens: [],
         subtotal: 0,
       }
+      
+      // Debug: log para verificar dados da loja
+      console.log('📦 [Checkout] Loja agrupada:', {
+        lojaId,
+        lojaNome: acc[lojaId].loja.nome,
+        temContato: !!acc[lojaId].loja.contato,
+        temRedes: !!acc[lojaId].loja.contato?.redes,
+        redes: acc[lojaId].loja.contato?.redes,
+        fazEntrega: acc[lojaId].loja.fazEntrega,
+        valorMinimoEntrega: acc[lojaId].loja.valorMinimoEntrega,
+      })
     }
     acc[lojaId].itens.push(item)
     acc[lojaId].subtotal += Number(item.precoFinal || 0) * item.quantidade
@@ -384,7 +407,9 @@ ${itensTexto}
 
 💰 *Total:* R$ ${grupo.subtotal.toFixed(2)}
 
-Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
+⚠️ *Importante:* Este pedido foi gerado através da plataforma Feira Livre. Por favor, confirme a disponibilidade dos produtos, o prazo de entrega e o valor final antes de confirmar a compra.
+
+Aguardo sua confirmação. Obrigado!`
   }
 
   // Abrir WhatsApp com mensagem
@@ -427,21 +452,17 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
     }
 
     const mensagem = gerarMensagemWhatsApp(lojaSelecionada)
-    const mensagemEncoded = encodeURIComponent(mensagem)
     
-    // Extrair número do WhatsApp da URL
-    const numeroMatch = whatsapp.match(/wa\.me\/(\d+)/)
-    if (numeroMatch) {
-      const numero = numeroMatch[1]
-      const urlWhatsApp = `https://wa.me/${numero}?text=${mensagemEncoded}`
-      
-      // Abrir em nova aba
-      window.open(urlWhatsApp, '_blank')
-    } else {
-      // Fallback: usar a URL original com mensagem
-      const urlWhatsApp = `${whatsapp}?text=${mensagemEncoded}`
-      window.open(urlWhatsApp, '_blank')
+    // Criar URL do WhatsApp com mensagem usando função utilitária
+    const urlWhatsApp = criarUrlWhatsApp(whatsapp, mensagem)
+    
+    if (!urlWhatsApp) {
+      alert('Erro ao criar link do WhatsApp. Por favor, tente novamente.')
+      return
     }
+    
+    // Abrir em nova aba
+    window.open(urlWhatsApp, '_blank')
 
     setShowConfirmDialog(false)
   }
@@ -480,28 +501,25 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
 
     lojasHabilitadas.forEach((grupo: any, index: number) => {
       const whatsapp = whatsappUrl({ entidade: grupo.loja })
-      if (!whatsapp) return
+      if (!whatsapp) {
+        console.warn(`⚠️ [Checkout] WhatsApp não encontrado para loja ${grupo.loja.nome}`)
+        return
+      }
 
       const mensagem = gerarMensagemWhatsApp(grupo)
-      const mensagemEncoded = encodeURIComponent(mensagem)
       
-      // Extrair número do WhatsApp da URL
-      const numeroMatch = whatsapp.match(/wa\.me\/(\d+)/)
-      if (numeroMatch) {
-        const numero = numeroMatch[1]
-        const urlWhatsApp = `https://wa.me/${numero}?text=${mensagemEncoded}`
-        
-        // Abrir cada WhatsApp com um pequeno delay para não bloquear
-        setTimeout(() => {
-          window.open(urlWhatsApp, '_blank')
-        }, index * 500) // Delay de 500ms entre cada abertura
-      } else {
-        // Fallback: usar a URL original com mensagem
-        const urlWhatsApp = `${whatsapp}?text=${mensagemEncoded}`
-        setTimeout(() => {
-          window.open(urlWhatsApp, '_blank')
-        }, index * 500)
+      // Criar URL do WhatsApp com mensagem usando função utilitária
+      const urlWhatsApp = criarUrlWhatsApp(whatsapp, mensagem)
+      
+      if (!urlWhatsApp) {
+        console.warn(`⚠️ [Checkout] Erro ao criar URL do WhatsApp para loja ${grupo.loja.nome}`)
+        return
       }
+      
+      // Abrir cada WhatsApp com um pequeno delay para não bloquear
+      setTimeout(() => {
+        window.open(urlWhatsApp, '_blank')
+      }, index * 500) // Delay de 500ms entre cada abertura
     })
 
     setShowConfirmDialogTodos(false)
@@ -585,20 +603,96 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
                   {/* Contato - WhatsApp se pode entregar, telefone/email se não */}
                   {(() => {
                     const validacao = validarEntrega(grupo)
-                    const whatsapp = whatsappUrl({ entidade: grupo.loja })
+                    
+                    // Buscar WhatsApp usando função utilitária robusta
+                    let whatsapp = buscarWhatsAppEntidade(grupo.loja)
+                    
+                    // Fallback: tentar buscar dos dados completos da entidade
+                    if (!whatsapp && entidadesCompletas[grupo.loja.id]) {
+                      whatsapp = buscarWhatsAppEntidade(entidadesCompletas[grupo.loja.id])
+                    }
+                    
+                    // Fallback: tentar buscar diretamente do item original do carrinho
+                    if (!whatsapp && grupo.itens.length > 0) {
+                      const primeiroItem = grupo.itens[0]
+                      whatsapp = buscarWhatsAppEntidade(primeiroItem.entidade)
+                    }
+                    
                     const telefone = grupo.loja.contato?.telefone
                     const email = grupo.loja.contato?.email
                     
+                    // Debug: log para verificar dados
+                    if (validacao.podeEntregar) {
+                      console.log('🔍 [Checkout] Validando WhatsApp para loja:', {
+                        lojaId: grupo.loja.id,
+                        lojaNome: grupo.loja.nome,
+                        podeEntregar: validacao.podeEntregar,
+                        temContato: !!grupo.loja.contato,
+                        temRedes: !!grupo.loja.contato?.redes,
+                        redes: grupo.loja.contato?.redes,
+                        whatsapp: whatsapp,
+                        whatsappValido: whatsapp ? criarUrlWhatsApp(whatsapp) !== null : false,
+                        entidadesCompletas: entidadesCompletas[grupo.loja.id] ? 'sim' : 'não',
+                      })
+                    }
+                    
                     if (validacao.podeEntregar && whatsapp) {
+                      // Verificar se a URL do WhatsApp é válida
+                      const urlWhatsApp = criarUrlWhatsApp(whatsapp)
+                      if (!urlWhatsApp) {
+                        console.warn('⚠️ [Checkout] URL do WhatsApp inválida:', whatsapp)
+                      }
+                      
                       return (
-                        <div className="mt-3">
+                        <div className="mt-3 space-y-2">
                           <Button
                             onClick={() => abrirWhatsApp(grupo)}
                             className="w-full bg-green-500 hover:bg-green-600 text-white"
+                            disabled={!urlWhatsApp}
                           >
                             <MessageCircle className="h-4 w-4 mr-2" />
-                            Comprar Itens via WhatsApp
+                            Comprar pelo WhatsApp
                           </Button>
+                          <p className="text-xs text-gray-500 text-center px-2">
+                            ⚠️ Esta ação não confirma a compra. Você enviará os itens para a loja via WhatsApp.
+                          </p>
+                        </div>
+                      )
+                    }
+                    
+                    // Se pode entregar mas não tem WhatsApp, mostrar mensagem
+                    if (validacao.podeEntregar && !whatsapp) {
+                      return (
+                        <div className="mt-3 space-y-2">
+                          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-xs text-yellow-800 text-center">
+                              WhatsApp não disponível para esta loja. Entre em contato pelos canais abaixo:
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            {telefone && (
+                              <div className="flex items-center gap-2 text-sm text-gray-700">
+                                <span className="font-medium">Telefone:</span>
+                                <a 
+                                  href={`tel:${telefone}`}
+                                  className="text-[#16A34A] hover:underline"
+                                >
+                                  {telefone}
+                                </a>
+                              </div>
+                            )}
+                            {email && (
+                              <div className="flex items-center gap-2 text-sm text-gray-700">
+                                <span className="font-medium">Email:</span>
+                                <a 
+                                  href={`mailto:${email}`}
+                                  className="text-[#16A34A] hover:underline"
+                                >
+                                  {email}
+                                </a>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )
                     }
@@ -839,33 +933,71 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
               <div className="space-y-2">
                 {/* Botão Comprar Todos - só aparece se todas as lojas podem entregar */}
                 {todasLojasPodemEntregar && lojasHabilitadas.length > 0 && (
-                  <Button
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold"
-                    onClick={abrirTodosWhatsApps}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Comprar Todos via WhatsApp
-                  </Button>
+                  <>
+                    <Button
+                      className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold"
+                      onClick={abrirTodosWhatsApps}
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Comprar Todos os Itens do Carrinho pelo WhatsApp
+                    </Button>
+                    <p className="text-xs text-gray-500 text-center px-2">
+                      ⚠️ Esta ação não confirma a compra. Você enviará os itens para cada loja via WhatsApp.
+                    </p>
+                  </>
                 )}
 
                 {!todasLojasPodemEntregar && (
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-xs text-yellow-800 text-center">
-                      Complete o valor mínimo de todas as lojas para comprar tudo de uma vez
+                      Complete o valor mínimo de todas as lojas para enviar todos os pedidos de uma vez
                     </p>
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  className="w-full border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
-                  onClick={() => {
-                    gerarPDFListaCompras(itensPorLoja, total)
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar PDF da Lista
-                </Button>
+                {/* Botão Gerar PDF - habilitado quando todas as lojas podem entregar */}
+                {todasLojasPodemEntregar && lojasHabilitadas.length > 0 ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
+                      onClick={() => {
+                        if (!validarDadosCliente()) {
+                          return
+                        }
+                        gerarPDFListaCompras(itensPorLoja, total)
+                        // Após gerar PDF, oferecer enviar para WhatsApp
+                        setTimeout(() => {
+                          if (window.confirm('Deseja também enviar os pedidos para cada loja via WhatsApp?')) {
+                            setShowConfirmDialogTodos(true)
+                          }
+                        }, 500)
+                      }}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Gerar PDF e Enviar para WhatsApp
+                    </Button>
+                    <p className="text-xs text-gray-500 text-center px-2">
+                      ⚠️ Gera PDF da lista e permite enviar mensagens para cada loja via WhatsApp. Esta ação não confirma a compra.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
+                      onClick={() => {
+                        gerarPDFListaCompras(itensPorLoja, total)
+                      }}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Gerar PDF da Lista
+                    </Button>
+                    <p className="text-xs text-gray-500 text-center px-2">
+                      Gere um PDF com sua lista de compras para consulta.
+                    </p>
+                  </>
+                )}
 
                 <Button
                   variant="outline"
@@ -887,9 +1019,13 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Compra via WhatsApp</AlertDialogTitle>
+            <AlertDialogTitle>Enviar Pedido via WhatsApp</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja comprar esses itens via WHATSAPP?
+              Você está prestes a enviar os itens desta loja via WhatsApp. 
+              <br />
+              <span className="font-semibold text-yellow-600 mt-2 block">
+                ⚠️ Esta ação não confirma a compra. Você enviará os itens para a loja, que entrará em contato para confirmar.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           {lojaSelecionada && (
@@ -908,7 +1044,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
               onClick={confirmarCompraWhatsApp}
               className="bg-green-500 hover:bg-green-600"
             >
-              Sim, Comprar via WhatsApp
+              Sim, Enviar para WhatsApp
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -918,12 +1054,15 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
       <AlertDialog open={showConfirmDialogTodos} onOpenChange={setShowConfirmDialogTodos}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Compra de Todos os Itens</AlertDialogTitle>
+            <AlertDialogTitle>Enviar Todos os Pedidos via WhatsApp</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja comprar todos os itens via WHATSAPP?
+              Você está prestes a enviar os itens de todas as lojas via WhatsApp.
               <br />
-              <span className="font-semibold text-green-600">
-                {lojasHabilitadas.length} {lojasHabilitadas.length === 1 ? 'loja' : 'lojas'} serão abertas.
+              <span className="font-semibold text-green-600 mt-2 block">
+                {lojasHabilitadas.length} {lojasHabilitadas.length === 1 ? 'loja será aberta' : 'lojas serão abertas'}.
+              </span>
+              <span className="font-semibold text-yellow-600 mt-2 block">
+                ⚠️ Esta ação não confirma a compra. Você enviará os itens para cada loja, que entrará em contato para confirmar.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -956,7 +1095,7 @@ Por favor, confirme a disponibilidade e o prazo de entrega. Obrigado!`
               onClick={confirmarCompraTodosWhatsApps}
               className="bg-green-500 hover:bg-green-600"
             >
-              Sim, Comprar Todos via WhatsApp
+              Sim, Enviar Todos para WhatsApp
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

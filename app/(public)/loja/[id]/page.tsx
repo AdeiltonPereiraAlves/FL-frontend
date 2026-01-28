@@ -99,7 +99,7 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
         const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados da loja'
         setError(errorMessage)
       } finally {
-        setLoading(false)
+      setLoading(false)
       }
     }
 

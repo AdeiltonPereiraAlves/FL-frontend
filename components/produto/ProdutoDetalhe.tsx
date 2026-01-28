@@ -72,34 +72,9 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
   }) || []
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b bg-[#16A34A] text-white">
-        <h3 className="font-bold text-lg flex-1 truncate pr-2">{produto.nome}</h3>
-        <div className="flex items-center gap-2">
-          {onAbrirCarrinho && (
-            <button
-              onClick={onAbrirCarrinho}
-              className="p-1.5 hover:bg-[#15803D] rounded transition-colors relative"
-              title="Ver carrinho"
-            >
-              <ShoppingBag className="h-5 w-5" />
-              {carrinho.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-white text-[#16A34A] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {carrinho.length}
-                </span>
-              )}
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-[#15803D] rounded transition-colors"
-            title="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-col bg-white">
+      {/* Header removido - agora está no componente pai */}
+      {/* Conteúdo do produto */}
 
       {/* Conteúdo */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

@@ -96,6 +96,9 @@ export function Header() {
                 router.push(`/produtos?busca=${encodeURIComponent(query)}`)
               }
             }}
+            initialCidadeId={typeof window !== 'undefined' ? 
+              (sessionStorage.getItem('feiralivre:cidadeSelecionada') || '') : ''
+            }
           />
 
           {/* Desktop Auth Buttons */}

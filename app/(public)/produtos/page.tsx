@@ -14,6 +14,7 @@ import Carrinho from '@/components/carrinho/Carrinho'
 import { CardEntidade } from '@/components/entidade/CardEntidade'
 import { useApiContext } from '@/contexts/ApiContext'
 import { LoadingSpinner, LoadingGrid, LoadingSkeleton } from '@/components/ui/LoadingSpinner'
+import { BannerCarousel } from '@/components/banner/BannerCarousel'
 
 export default function ProdutosPage() {
   const router = useRouter()
@@ -181,9 +182,14 @@ export default function ProdutosPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Carrossel de Banners */}
+        <section className="mb-8">
+          <BannerCarousel />
+        </section>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {searchQuery ? `Resultados para "${searchQuery}"` : 'Todos os Produtos'}
+            {searchQuery ? `Resultados para "${searchQuery}"` : 'Ofertas e Produtos'}
           </h1>
           <p className="text-gray-600">
             {searchQuery 

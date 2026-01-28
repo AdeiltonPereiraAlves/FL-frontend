@@ -12,6 +12,10 @@ interface CreateEntityDivIconProps {
   temLogo?: boolean // Se a entidade tem logo (nível > 0)
   temDestaque?: boolean // Se a entidade tem destaque (PREMIUM ou PREMIUM_MAX)
   zIndex?: number // Z-index baseado no plano
+  corBorda?: string // Cor da borda (para diferenciar camadas)
+  pulsando?: boolean // Se o marcador deve pulsar (resultado de busca)
+  mostrarNome?: boolean // Se deve mostrar o nome da entidade (baseado no zoom)
+  zoomLevel?: number // Nível de zoom atual
 }
 
 /**
@@ -79,6 +83,10 @@ export function createEntityDivIcon({
   temLogo = false,
   temDestaque = false,
   zIndex = 100,
+  corBorda = '#FFFFFF',
+  pulsando = false,
+  mostrarNome = false,
+  zoomLevel = 14,
 }: CreateEntityDivIconProps) {
   // Validação e sanitização
   const safeImageUrl = escapeHtml(imageUrl || 'https://via.placeholder.com/50')
@@ -92,9 +100,11 @@ export function createEntityDivIcon({
     : ''
 
   // Classes condicionais
-  const borderClasses = highlight 
-    ? 'border-green-500 border-4 shadow-xl ring-2 ring-green-500 ring-offset-2' 
-    : 'border-white'
+  const borderColor = highlight ? '#22c55e' : corBorda
+  const borderWidth = highlight ? '4px' : temDestaque ? '3px' : '2px'
+  const animationStyle = pulsando 
+    ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' 
+    : ''
   
   const precoClasses = highlight
     ? 'bg-green-500 text-white font-bold text-sm px-3 py-1 rounded-lg shadow-xl border-2 border-white animate-pulse'
@@ -109,26 +119,24 @@ export function createEntityDivIcon({
       
       <!-- LOGO (só aparece se temLogo = true) -->
       ${temLogo
-        ? `<div class="${temDestaque ? 'premium-marker' : ''}" style="width: ${temDestaque ? '56px' : '48px'}; height: ${temDestaque ? '56px' : '48px'}; border-radius: 9999px; overflow: hidden; border: 2px solid ${highlight ? '#22c55e' : temDestaque ? '#16A34A' : 'white'}; ${highlight ? 'border-width: 4px; box-shadow: 0 0 0 2px #22c55e, 0 0 10px rgba(34, 197, 94, 0.5);' : temDestaque ? 'border-width: 3px; box-shadow: 0 0 0 2px #16A34A, 0 4px 12px rgba(22, 163, 74, 0.4); animation: premiumPulse 2s ease-in-out infinite;' : ''} box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25); background: white; transition: all 0.3s; position: relative;">
+        ? `<div class="${temDestaque ? 'premium-marker' : ''}" style="width: ${temDestaque ? '56px' : '48px'}; height: ${temDestaque ? '56px' : '48px'}; border-radius: 9999px; overflow: hidden; border: ${borderWidth} solid ${borderColor}; ${highlight ? `box-shadow: 0 0 0 2px ${borderColor}, 0 0 10px rgba(34, 197, 94, 0.5);` : temDestaque ? `box-shadow: 0 0 0 2px ${borderColor}, 0 4px 12px rgba(22, 163, 74, 0.4);` : `box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);`} ${animationStyle} background: white; transition: all 0.3s; position: relative;">
           <img src="${safeImageUrl}" 
                alt="${safeNomeEntidade || 'Entidade'}" 
                style="width: 100%; height: 100%; object-fit: cover;"
                loading="lazy" />
           ${temDestaque ? '<div class="premium-badge" style="position: absolute; top: -2px; right: -2px; background: #16A34A; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); animation: premiumBadgePulse 1.5s ease-in-out infinite;">⭐</div>' : ''}
         </div>`
-        : `<div style="width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; border: 2px solid #9CA3AF; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); background: #F3F4F6; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
-          <div style="width: 24px; height: 24px; background: #9CA3AF; border-radius: 50%;"></div>
+        : `<div style="width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; border: ${borderWidth} solid ${borderColor}; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); background: #F3F4F6; display: flex; align-items: center; justify-content: center; transition: all 0.3s; ${animationStyle}">
+          <div style="width: 24px; height: 24px; background: ${corBorda === '#FFFFFF' ? '#9CA3AF' : corBorda}; border-radius: 50%;"></div>
         </div>`
       }
 
-      <!-- NOME DA ENTIDADE (clicável para mostrar botão) -->
-      ${safeNomeEntidade 
-        ? `<div style="margin-top: 4px; max-width: 100px; text-align: center;">
-            <span class="entity-nome-clickable" 
+      <!-- NOME DA ENTIDADE (mostrar baseado no zoom) -->
+      ${safeNomeEntidade && mostrarNome
+        ? `<div style="margin-top: 4px; max-width: 120px; text-align: center;">
+            <span class="entity-nome-label" 
                   data-entity-id="${safeEntidadeId || ''}"
-                  style="font-size: 12px; font-weight: 600; color: #1f2937; background: white; padding: 2px 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; cursor: pointer; transition: all 0.2s;"
-                  onmouseover="this.style.background='#f3f4f6'; this.style.color='#15803D';"
-                  onmouseout="this.style.background='white'; this.style.color='#1f2937';">
+                  style="font-size: ${zoomLevel >= 16 ? '13px' : '11px'}; font-weight: 600; color: #1f2937; background: white; padding: 3px 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; border: 1px solid #e5e7eb; transition: all 0.2s;">
               ${safeNomeEntidade}
             </span>
           </div>`
@@ -163,13 +171,15 @@ export function createEntityDivIcon({
     </div>
   `
 
+  // Ajustar tamanho do ícone baseado em se o nome será mostrado
+  const nomeSeraMostrado = mostrarNome && safeNomeEntidade
   const iconSize = temDestaque 
-    ? [temLogo ? 56 : 48, safeNomeEntidade ? 100 : 80] as [number, number]
-    : [temLogo ? 48 : 40, safeNomeEntidade ? 90 : 70] as [number, number]
+    ? [temLogo ? 56 : 48, nomeSeraMostrado ? 120 : (safeNomeEntidade ? 100 : 80)] as [number, number]
+    : [temLogo ? 48 : 40, nomeSeraMostrado ? 110 : (safeNomeEntidade ? 90 : 70)] as [number, number]
   
   const iconAnchor = temDestaque
-    ? [temLogo ? 28 : 24, safeNomeEntidade ? 80 : 60] as [number, number]
-    : [temLogo ? 24 : 20, safeNomeEntidade ? 70 : 50] as [number, number]
+    ? [temLogo ? 28 : 24, nomeSeraMostrado ? 100 : (safeNomeEntidade ? 80 : 60)] as [number, number]
+    : [temLogo ? 24 : 20, nomeSeraMostrado ? 90 : (safeNomeEntidade ? 70 : 50)] as [number, number]
 
   return L.divIcon({
     className: 'entity-marker',
