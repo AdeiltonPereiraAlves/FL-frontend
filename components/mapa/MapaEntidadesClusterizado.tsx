@@ -573,7 +573,7 @@ export default function MapaEntidadesClusterizado({
   }, [temBusca, produtos, entidades])
 
   return (
-    <div className="relative w-full h-[500px]">
+    <div className="relative w-full h-full min-h-[500px]">
       {/* Overlay de carregamento */}
       {isLoading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-[1000] flex items-center justify-center rounded-lg">

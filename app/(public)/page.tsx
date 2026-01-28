@@ -12,7 +12,8 @@ import { DynamicContent } from '@/components/navigation/DynamicContent'
 import { useNavigation } from '@/contexts/NavigationContext'
 import { useRouter } from 'next/navigation'
 import { BotoesRapidos } from '@/components/home/BotoesRapidos'
-import { ListaEntidadesLateral } from '@/components/home/ListaEntidadesLateral'
+import { ListaEntidadesProdutosLateral } from '@/components/home/ListaEntidadesProdutosLateral'
+import { DrawerLateral } from '@/components/home/DrawerLateral'
 import { Input } from '@/components/ui/input'
 import { buscarInteligente, agruparPorEntidade } from '@/utils/searchInteligente'
 import { useCache } from '@/contexts/CacheContext'
@@ -24,6 +25,7 @@ const Map = dynamic(() => import('@/components/mapa/MapaEntidadesClusterizado'),
 
 const SEARCH_STORAGE_KEY = 'feiralivre:ultimaBusca'
 const CHECKOUT_RETURN_STORAGE_KEY = 'feiralivre:checkoutReturnState'
+const LOJA_RETURN_STORAGE_KEY = 'feiralivre:lojaReturnState'
 
 interface SavedSearchState {
   busca: string
@@ -185,7 +187,7 @@ export default function HomePage() {
         console.error('Erro ao salvar no cache:', err)
       }
 
-      // Salvar busca no localStorage para restaurar depois
+      // Salvar busca no localStorage e sessionStorage para restaurar depois
       try {
         const stateToSave: SavedSearchState = {
           busca: queryFinal,
@@ -195,6 +197,8 @@ export default function HomePage() {
           timestamp: Date.now(),
         }
         localStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(stateToSave))
+        // Também salvar no sessionStorage para restaurar ao voltar da loja
+        sessionStorage.setItem(LOJA_RETURN_STORAGE_KEY, JSON.stringify(stateToSave))
       } catch (err) {
         console.error('Erro ao salvar busca:', err)
       }
@@ -207,7 +211,7 @@ export default function HomePage() {
     }
   }, [busca, cidadeId, produtosApi, cache])
 
-  // Verificar se está voltando do checkout e restaurar busca
+  // Verificar se está voltando do checkout ou da loja e restaurar busca
   useEffect(() => {
     if (typeof window === 'undefined') return
     
@@ -229,11 +233,53 @@ export default function HomePage() {
         
         // Limpar o estado do checkout após restaurar
         sessionStorage.removeItem(CHECKOUT_RETURN_STORAGE_KEY)
+        return
       } catch (err) {
         console.error('Erro ao restaurar estado do checkout:', err)
         sessionStorage.removeItem(CHECKOUT_RETURN_STORAGE_KEY)
       }
     }
+
+    // Verifica se há estado salvo da loja para restaurar
+    const lojaReturnState = sessionStorage.getItem(LOJA_RETURN_STORAGE_KEY)
+    
+    if (lojaReturnState) {
+      try {
+        const state: SavedSearchState = JSON.parse(lojaReturnState)
+        
+        // Restaurar busca se houver
+        if (state.busca && state.cidadeId) {
+          console.log('🔄 [HomePage] Restaurando busca após voltar da loja:', state.busca)
+          setBusca(state.busca)
+          setCidadeId(state.cidadeId)
+          
+          // Se houver produtos salvos, restaurar também
+          if (state.produtos && state.produtos.length > 0) {
+            setProdutos(state.produtos)
+            setEntidadesDestaqueIds(state.entidadesDestaqueIds || [])
+            setBuscaRealizada(true)
+            setResultadosBuscaInteligente(state.produtos.map((p: any) => ({
+              produto: p,
+              entidade: p.entidade,
+              score: 100,
+              matchType: 'produto' as const,
+              hasPromocao: p.emPromocao || false,
+              preco: p.precoFinal || p.precoAtual,
+            })))
+          } else {
+            // Se não houver produtos salvos, executar busca novamente
+            buscarComParametros(state.busca, state.cidadeId)
+          }
+        }
+        
+        // Limpar o estado da loja após restaurar
+        sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
+      } catch (err) {
+        console.error('Erro ao restaurar estado da loja:', err)
+        sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Carregar busca da URL (não restaura do localStorage no reload)
@@ -298,6 +344,8 @@ export default function HomePage() {
     const handleBuscar = (event: CustomEvent) => {
       const { query, cidadeId } = event.detail
       if (query && cidadeId) {
+        // Limpar estado anterior da loja ao fazer nova busca
+        sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
         setBusca(query)
         setCidadeId(cidadeId)
         buscarComParametros(query, cidadeId)
@@ -312,6 +360,10 @@ export default function HomePage() {
       setEntidadesDestaqueIds([])
       setBuscaRealizada(false)
       setErroCidade('')
+      
+      // Limpar estado salvo da loja também
+      sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
+      localStorage.removeItem(SEARCH_STORAGE_KEY)
       
       // Recarregar entidades se houver cidade selecionada
       if (cidadeId) {
@@ -467,8 +519,25 @@ export default function HomePage() {
     return <DynamicContent />
   }
 
+  // Função para salvar estado da busca antes de navegar para loja
+  const salvarEstadoBusca = useCallback(() => {
+    if (busca.trim() && cidadeId) {
+      const stateToSave: SavedSearchState = {
+        busca: busca,
+        cidadeId: cidadeId,
+        produtos: produtos,
+        entidadesDestaqueIds: entidadesDestaqueIds,
+        timestamp: Date.now(),
+      }
+      sessionStorage.setItem(LOJA_RETURN_STORAGE_KEY, JSON.stringify(stateToSave))
+      console.log('💾 [HomePage] Estado da busca salvo antes de navegar para loja:', busca)
+    }
+  }, [busca, cidadeId, produtos, entidadesDestaqueIds])
+
   const handleBuscaRapida = useCallback((query: string) => {
     if (cidadeId) {
+      // Limpar estado anterior da loja ao fazer nova busca
+      sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
       setBusca(query)
       buscarComParametros(query, cidadeId)
     } else {
@@ -547,11 +616,68 @@ export default function HomePage() {
       {!cidadesApi.isLoading && (
         <section id="mapa-container" className="py-4 sm:py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-              {/* Mapa - Ocupa 2 colunas no desktop */}
-              <div className="lg:col-span-2">
+            {/* Layout Desktop: Lista (30%) + Mapa (70%) */}
+            <div className="hidden lg:flex gap-6 h-[calc(100vh-300px)] min-h-[600px]">
+              {/* Lista Lateral - 30% width */}
+              <div className="w-[30%] flex-shrink-0">
+                <ListaEntidadesProdutosLateral
+                  entidades={entidades}
+                  produtos={produtos}
+                  resultadosBusca={resultadosBuscaInteligente}
+                  busca={busca}
+                  cidadeId={cidadeId}
+                  highlightedEntityId={highlightedEntityId}
+                  onEntityHover={setHighlightedEntityId}
+                  onEntityClick={(id) => {
+                    setHighlightedEntityId(id)
+                    salvarEstadoBusca()
+                    if (typeof window !== 'undefined') {
+                      sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
+                      setTimeout(() => {
+                        navigateToLoja(id)
+                      }, 0)
+                    }
+                  }}
+                  onSalvarEstadoBusca={salvarEstadoBusca}
+                />
+              </div>
+
+              {/* Mapa - 70% width */}
+              <div className="flex-1 min-w-0 h-full">
                 {entidadesApi.isLoading && !busca.trim() && produtos.length === 0 ? (
-                  <div className="relative w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="relative w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
+                    <LoadingSpinner size="lg" text="Carregando lojas no mapa..." />
+                  </div>
+                ) : (
+                  <div className="h-full w-full rounded-lg overflow-hidden border border-gray-200">
+                    <Map
+                      entidades={entidades}
+                      produtos={produtos}
+                      entidadesDestaqueIds={entidadesDestaqueIds}
+                      isLoading={isSearching}
+                      highlightedEntityId={highlightedEntityId}
+                      onEntityHover={setHighlightedEntityId}
+                      onEntityClick={(id) => {
+                        setHighlightedEntityId(id)
+                        salvarEstadoBusca()
+                        if (typeof window !== 'undefined') {
+                          sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
+                          setTimeout(() => {
+                            navigateToLoja(id)
+                          }, 0)
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Layout Mobile: Mapa full screen + Drawer lateral */}
+            <div className="lg:hidden">
+              <div className="relative w-full h-[500px] rounded-lg overflow-hidden">
+                {entidadesApi.isLoading && !busca.trim() && produtos.length === 0 ? (
+                  <div className="relative w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
                     <LoadingSpinner size="lg" text="Carregando lojas no mapa..." />
                   </div>
                 ) : (
@@ -564,10 +690,8 @@ export default function HomePage() {
                     onEntityHover={setHighlightedEntityId}
                     onEntityClick={(id) => {
                       setHighlightedEntityId(id)
-                      // Navegar para a loja de forma assíncrona para evitar problemas com hooks
                       if (typeof window !== 'undefined') {
                         sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
-                        // Usar setTimeout para garantir que todos os hooks sejam executados
                         setTimeout(() => {
                           navigateToLoja(id)
                         }, 0)
@@ -577,100 +701,27 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* Lista Lateral de Entidades - Ocupa 1 coluna no desktop */}
-              <div className="lg:col-span-1">
-                {!busca.trim() && entidades.length > 0 && (
-                  <ListaEntidadesLateral 
-                    entidades={entidades} 
-                    cidadeId={cidadeId}
-                    highlightedEntityId={highlightedEntityId}
-                    onEntityHover={setHighlightedEntityId}
-                    onEntityClick={(id) => {
-                      setHighlightedEntityId(id)
-                      // Navegar para loja será feito pelo componente
-                    }}
-                  />
-                )}
-                {busca.trim() && resultadosBuscaInteligente.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      Resultados da Busca
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      {resultadosBuscaInteligente.length} resultado(s) encontrado(s) para "{busca}"
-                    </p>
-                    <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                      {resultadosBuscaInteligente.slice(0, 20).map((resultado, index) => {
-                        const entidade = resultado.entidade || resultado.produto?.entidade
-                        const produto = resultado.produto
-                        const isHighlighted = highlightedEntityId === entidade?.id
-
-                        return (
-                          <div
-                            key={resultado.produto?.id || entidade?.id || index}
-                            className={`p-3 rounded-lg border transition-all cursor-pointer ${
-                              isHighlighted
-                                ? 'border-[#16A34A] bg-green-50 shadow-md'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onMouseEnter={() => setHighlightedEntityId(entidade?.id || null)}
-                            onMouseLeave={() => setHighlightedEntityId(null)}
-                          >
-                            {produto ? (
-                              <div>
-                                <p className="font-semibold text-sm text-gray-900">
-                                  {produto.nome}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {entidade?.nome}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  {resultado.hasPromocao && resultado.preco ? (
-                                    <>
-                                      <span className="text-xs text-gray-400 line-through">
-                                        R$ {produto.precoAtual?.toFixed(2)}
-                                      </span>
-                                      <span className="text-sm font-bold text-[#16A34A]">
-                                        R$ {resultado.preco.toFixed(2)}
-                                      </span>
-                                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">
-                                        PROMOÇÃO
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span className="text-sm font-bold text-[#16A34A]">
-                                      R$ {resultado.preco?.toFixed(2) || 'N/A'}
-                                    </span>
-                                  )}
-                                </div>
-                                {resultado.distancia && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    📍 {resultado.distancia.toFixed(1)} km
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="font-semibold text-sm text-gray-900">
-                                  {entidade?.nome}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  Tipo: {entidade?.tipo}
-                                </p>
-                                {resultado.distancia && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    📍 {resultado.distancia.toFixed(1)} km
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Drawer Lateral Mobile */}
+              <DrawerLateral
+                entidades={entidades}
+                produtos={produtos}
+                resultadosBusca={resultadosBuscaInteligente}
+                busca={busca}
+                cidadeId={cidadeId}
+                highlightedEntityId={highlightedEntityId}
+                onEntityHover={setHighlightedEntityId}
+                onEntityClick={(id) => {
+                  setHighlightedEntityId(id)
+                  salvarEstadoBusca()
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
+                    setTimeout(() => {
+                      navigateToLoja(id)
+                    }, 0)
+                  }
+                }}
+                onSalvarEstadoBusca={salvarEstadoBusca}
+              />
             </div>
           </div>
         </section>

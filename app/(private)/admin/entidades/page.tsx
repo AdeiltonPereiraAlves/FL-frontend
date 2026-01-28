@@ -94,6 +94,32 @@ export default function AdminEntidadesPage() {
   })
   const [salvandoPlano, setSalvandoPlano] = useState(false)
 
+  // Função para normalizar o nome do plano para o tipo esperado pelo backend
+  // IMPORTANTE: O backend aceita "PRO" como nome real no banco, mas normaliza para "BASICO" internamente
+  const normalizarTipoPlano = (nomePlano: string): 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX' => {
+    const nomeNormalizado = nomePlano.toUpperCase().trim()
+    
+    // Mapeamento de variações possíveis para os tipos válidos
+    if (nomeNormalizado === 'FREE' || nomeNormalizado === 'GRATUITO' || nomeNormalizado === 'GRÁTIS') {
+      return 'FREE'
+    }
+    // PRO e BASICO são tratados como o mesmo tipo (BASICO) pelo backend
+    // Mas o banco pode ter "PRO" como nome real do plano
+    if (nomeNormalizado === 'BASICO' || nomeNormalizado === 'BÁSICO' || nomeNormalizado === 'BASIC' || nomeNormalizado === 'PRO') {
+      return 'BASICO' // Backend normaliza para BASICO, mas busca "PRO" no banco
+    }
+    if (nomeNormalizado === 'PREMIUM') {
+      return 'PREMIUM'
+    }
+    if (nomeNormalizado === 'PREMIUM_MAX' || nomeNormalizado === 'PREMIUMMAX' || nomeNormalizado === 'PREMIUM-MAX') {
+      return 'PREMIUM_MAX'
+    }
+    
+    // Se não corresponder a nenhum, retornar FREE como padrão seguro
+    console.warn(`⚠️ Tipo de plano não reconhecido: "${nomePlano}". Usando FREE como padrão.`)
+    return 'FREE'
+  }
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login')
@@ -368,8 +394,10 @@ export default function AdminEntidadesPage() {
                                   variant="ghost"
                                   onClick={() => {
                                     setEntidadeSelecionada(entidade)
+                                    // Normalizar o plano da entidade antes de definir no estado
+                                    const planoNormalizado = normalizarTipoPlano(entidade.plano || 'FREE')
                                     setPlanoSelecionado({
-                                      tipo: entidade.plano as 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX',
+                                      tipo: planoNormalizado,
                                       nivel: 0,
                                     })
                                     setModalPlanoAberto(true)
@@ -478,12 +506,14 @@ export default function AdminEntidadesPage() {
                 <Label htmlFor="tipo-plano">Tipo de Plano *</Label>
                 <Select
                   value={planoSelecionado.tipo}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
+                    // Normalizar o valor antes de definir no estado
+                    const tipoNormalizado = normalizarTipoPlano(value)
                     setPlanoSelecionado({
                       ...planoSelecionado,
-                      tipo: value as 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX',
+                      tipo: tipoNormalizado,
                     })
-                  }
+                  }}
                 >
                   <SelectTrigger id="tipo-plano">
                     <SelectValue placeholder="Selecione o tipo de plano" />
@@ -613,20 +643,31 @@ export default function AdminEntidadesPage() {
 
                 setSalvandoPlano(true)
                 try {
-                  // Validar se o plano existe no banco
-                  const planoExiste = planosDisponiveis.find(p => p.nome === planoSelecionado.tipo)
+                  // Normalizar o tipo de plano antes de enviar
+                  const tipoNormalizado = normalizarTipoPlano(planoSelecionado.tipo)
+                  
+                  // Validar se o plano existe no banco (comparar com nome normalizado)
+                  const planoExiste = planosDisponiveis.find(p => 
+                    normalizarTipoPlano(p.nome) === tipoNormalizado
+                  )
                   if (!planoExiste && planosDisponiveis.length > 0) {
-                    throw new Error(`Plano "${planoSelecionado.tipo}" não encontrado no banco de dados`)
+                    throw new Error(`Plano "${tipoNormalizado}" não encontrado no banco de dados`)
+                  }
+
+                  // Garantir que o tipo seja um dos valores válidos antes de enviar
+                  const tiposValidos: Array<'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX'> = ['FREE', 'BASICO', 'PREMIUM', 'PREMIUM_MAX']
+                  if (!tiposValidos.includes(tipoNormalizado)) {
+                    throw new Error(`Tipo de plano inválido: "${tipoNormalizado}". Deve ser um dos: ${tiposValidos.join(', ')}`)
                   }
 
                   await atualizarPlanoEntidade(
                     entidadeSelecionada.id,
-                    planoSelecionado.tipo,
+                    tipoNormalizado,
                     planoSelecionado.nivel
                   )
                   toast({
                     title: 'Plano atualizado!',
-                    description: `O plano da entidade "${entidadeSelecionada.nome}" foi alterado para ${planoSelecionado.tipo} (nível ${planoSelecionado.nivel}).`,
+                    description: `O plano da entidade "${entidadeSelecionada.nome}" foi alterado para ${tipoNormalizado} (nível ${planoSelecionado.nivel}).`,
                   })
                   setModalPlanoAberto(false)
                   setEntidadeSelecionada(null)
