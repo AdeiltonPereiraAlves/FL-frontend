@@ -4,7 +4,8 @@ import Image from 'next/image'
 import { X, Calendar, Truck, Package, Store, Tag, Copy, Check, AlertCircle, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useApiContext } from '@/contexts/ApiContext'
 
 interface Props {
   produto: any
@@ -14,8 +15,39 @@ interface Props {
 
 export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: Props) {
   const { adicionar, carrinho } = useCart()
+  const api = useApiContext()
   const [quantidade, setQuantidade] = useState(1)
   const [cupomCopiado, setCupomCopiado] = useState<string | null>(null)
+
+  // Log quando componente é renderizado
+  useEffect(() => {
+    console.log('🎨 [ProdutoDetalhes] Componente renderizado com produto:', produto?.id, produto?.nome)
+  }, [produto?.id, produto?.nome])
+
+  // Registrar visualização do produto
+  useEffect(() => {
+    async function registrarVisualizacao() {
+      if (!produto?.id) {
+        console.log('⚠️ [ProdutoDetalhe] Produto sem ID, não registrando visualização')
+        return
+      }
+
+      try {
+        console.log('📊 [ProdutoDetalhe] Registrando visualização do produto:', produto.id, produto.nome)
+        // Registrar visualização (não bloqueia se falhar)
+        // O cookie visitorId será enviado automaticamente via withCredentials
+        const response = await api.post(`/produto/${produto.id}/visualizacao`)
+        console.log('✅ [ProdutoDetalhe] Visualização registrada com sucesso:', response)
+      } catch (error) {
+        console.error('❌ [ProdutoDetalhe] Erro ao registrar visualização:', error)
+        // Não bloqueia a UI, mas loga o erro para debug
+      }
+    }
+
+    if (produto?.id) {
+      registrarVisualizacao()
+    }
+  }, [produto?.id, api, produto?.nome])
 
   const formatarData = (data: string | Date | null) => {
     if (!data) return null

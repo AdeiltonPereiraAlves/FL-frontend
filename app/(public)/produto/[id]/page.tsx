@@ -11,12 +11,14 @@ import { useRouter } from 'next/navigation'
 import CartButton from '@/components/carrinho/Cartbutton'
 import Carrinho from '@/components/carrinho/Carrinho'
 import { LoadingSpinner, LoadingSkeleton } from '@/components/ui/LoadingSpinner'
+import { useApiContext } from '@/contexts/ApiContext'
 
 export default function ProdutoPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const router = useRouter()
   const { buscarProdutoPorId } = useProdutos()
   const { adicionar } = useCart()
+  const api = useApiContext()
   
   const [produto, setProduto] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -40,6 +42,30 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
 
     carregar()
   }, [resolvedParams.id, buscarProdutoPorId])
+
+  // Registrar visualização do produto quando a página carregar
+  useEffect(() => {
+    async function registrarVisualizacao() {
+      if (!produto?.id || loading) {
+        return
+      }
+
+      try {
+        console.log('📊 [ProdutoPage] Registrando visualização do produto:', produto.id, produto.nome)
+        // Registrar visualização (não bloqueia se falhar)
+        // O cookie visitorId será enviado automaticamente via withCredentials
+        const response = await api.post(`/produto/${produto.id}/visualizacao`)
+        console.log('✅ [ProdutoPage] Visualização registrada com sucesso:', response)
+      } catch (error) {
+        console.error('❌ [ProdutoPage] Erro ao registrar visualização:', error)
+        // Não bloqueia a UI, mas loga o erro para debug
+      }
+    }
+
+    if (produto?.id && !loading) {
+      registrarVisualizacao()
+    }
+  }, [produto?.id, produto?.nome, loading, api])
 
   // Carregar página anterior do sessionStorage
   useEffect(() => {

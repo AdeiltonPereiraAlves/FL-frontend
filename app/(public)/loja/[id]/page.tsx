@@ -106,6 +106,25 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     carregar()
   }, [resolvedParams.id, buscarEntidadePorId, cache])
 
+  // Registrar visita à loja
+  useEffect(() => {
+    async function registrarVisita() {
+      try {
+        // Registrar visita (não bloqueia se falhar)
+        // O cookie visitorId será enviado automaticamente via withCredentials
+        await api.post(`/entidade/${resolvedParams.id}/visita`).catch(() => {
+          // Silenciosamente ignora erros
+        })
+      } catch (error) {
+        // Silenciosamente ignora erros
+      }
+    }
+
+    if (entidade && !loading) {
+      registrarVisita()
+    }
+  }, [entidade, resolvedParams.id, loading, api])
+
   // Carregar página anterior do sessionStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {

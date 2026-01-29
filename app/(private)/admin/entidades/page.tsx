@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
-import { Loader2, Plus, Search, Edit, Package, Building2, Filter, Save, X } from 'lucide-react'
+import { Loader2, Plus, Search, Edit, Package, Building2, Filter, Save, X, BarChart3 } from 'lucide-react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { EntidadeAnalyticsPanel } from '@/components/admin/EntidadeAnalyticsPanel'
 
 interface Entidade {
   id: string
@@ -93,6 +94,7 @@ export default function AdminEntidadesPage() {
     nivel: 0,
   })
   const [salvandoPlano, setSalvandoPlano] = useState(false)
+  const [entidadeParaAnalytics, setEntidadeParaAnalytics] = useState<Entidade | null>(null)
 
   // Função para normalizar o nome do plano para o tipo esperado pelo backend
   // IMPORTANTE: O backend aceita "PRO" como nome real no banco, mas normaliza para "BASICO" internamente
@@ -205,6 +207,15 @@ export default function AdminEntidadesPage() {
 
       <div className="flex-1 flex flex-col lg:pl-64">
         <main className="flex-1 p-4 md:p-8 lg:p-10">
+          {/* Mostrar painel de analytics se uma entidade estiver selecionada */}
+          {entidadeParaAnalytics ? (
+            <EntidadeAnalyticsPanel
+              entidadeId={entidadeParaAnalytics.id}
+              entidadeNome={entidadeParaAnalytics.nome}
+              onVoltar={() => setEntidadeParaAnalytics(null)}
+            />
+          ) : (
+            <>
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -426,6 +437,17 @@ export default function AdminEntidadesPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEntidadeParaAnalytics(entidade)
+                                  }}
+                                  title="Ver Painel de Métricas"
+                                >
+                                  <BarChart3 className="h-3 w-3 mr-1" />
+                                  Ver Painel
+                                </Button>
                                 <Link href={`/admin/entidades/${entidade.id}/editar`}>
                                   <Button variant="outline" size="sm">
                                     <Edit className="h-4 w-4 mr-1" />
@@ -480,8 +502,9 @@ export default function AdminEntidadesPage() {
               </CardContent>
             </Card>
           </motion.div>
+            </>
+          )}
         </main>
-      </div>
 
       {/* Modal de Edição de Plano */}
       <Dialog open={modalPlanoAberto} onOpenChange={setModalPlanoAberto}>
@@ -711,6 +734,7 @@ export default function AdminEntidadesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }
