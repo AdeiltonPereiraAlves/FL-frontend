@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   Building2,
-  Users,
+  MessageSquare,
   CreditCard,
   Menu,
   X,
@@ -30,6 +30,11 @@ const menuItems = [
     title: 'Planos e Preços',
     href: '/admin/planos',
     icon: CreditCard,
+  },
+  {
+    title: 'Sugestões',
+    href: '/admin/sugestoes',
+    icon: MessageSquare,
   },
 ]
 

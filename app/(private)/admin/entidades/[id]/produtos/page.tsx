@@ -67,7 +67,7 @@ export default function ProdutosEntidadePage() {
     if (!authLoading && !isAuthenticated) {
       router.push('/login')
     } else if (!authLoading && isAuthenticated && !isDonoSistema() && !isAdmin()) {
-      router.push('/dashboard')
+      router.push('/')
     }
   }, [authLoading, isAuthenticated, isDonoSistema, isAdmin, router])
 
@@ -192,7 +192,7 @@ export default function ProdutosEntidadePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
 
       <div className="flex-1 flex flex-col lg:pl-64">

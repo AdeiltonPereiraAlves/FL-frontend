@@ -736,7 +736,7 @@ export default function HomePage() {
   return (
     <>
       {/* TÍTULO E BOTÕES RÁPIDOS - Busca está no header */}
-      <section className="py-4 sm:py-6 md:py-8 bg-gradient-to-b from-[#16A34A]/5 to-transparent">
+      <section className="py-4 sm:py-6 md:py-8 bg-white">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
@@ -789,7 +789,7 @@ export default function HomePage() {
 
       {/* MAPA + LISTA LATERAL */}
       {!cidadesApi.isLoading && (
-        <section id="mapa-container" className="py-4 sm:py-6">
+        <section id="mapa-container" className="py-4 sm:py-6 bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Layout Desktop: Lista (30%) + Mapa (70%) */}
             <div className="hidden lg:flex gap-6 h-[calc(100vh-300px)] min-h-[600px]">
@@ -906,6 +906,7 @@ export default function HomePage() {
                           }, 0)
                         }
                       }}
+                      showProductPanel={false}
                     />
                   </div>
                 )}

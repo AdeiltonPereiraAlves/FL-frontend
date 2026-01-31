@@ -17,8 +17,6 @@ import { useRole } from '@/hooks/useRole'
 import { EditarEntidadeForm } from '@/components/admin/EditarEntidadeForm'
 import { DialogProdutoCompleto } from '@/components/admin/DialogProdutoCompleto'
 import { EditarProdutoInline } from '@/components/admin/EditarProdutoInline'
-import { useNavigation } from '@/contexts/NavigationContext'
-import { BackButton } from '@/components/navigation/BackButton'
 import { useCache } from '@/contexts/CacheContext'
 import { useUIPanel } from '@/contexts/UIPanelContext'
 
@@ -31,7 +29,6 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const { adicionar } = useCart()
   const { isAuthenticated } = useAuth()
   const { isDonoSistema, isAdmin } = useRole()
-  const { state: navState, canGoBack } = useNavigation()
   const cache = useCache()
   
   // Verificar se está em modo admin (vindo da página de planos)
@@ -50,15 +47,8 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const { cartOpen, toggleCart } = useUIPanel()
   const [paginaAnterior, setPaginaAnterior] = useState<string | null>(null)
   
-  // Verificar se deve mostrar botão voltar: se veio do mapa/home ou se tem página anterior no sessionStorage
-  // Usar useMemo para calcular depois que paginaAnterior for definido
-  const veioDoMapaOuHome = useMemo(() => {
-    return canGoBack() && (navState.previousView === 'home' || navState.currentView === 'loja')
-  }, [canGoBack, navState.previousView, navState.currentView])
-  
-  const deveMostrarVoltar = useMemo(() => {
-    return veioDoMapaOuHome || paginaAnterior || isAdminMode
-  }, [veioDoMapaOuHome, paginaAnterior, isAdminMode])
+  // Sempre mostrar botão voltar (para link da lista, mapa, produto, admin ou acesso direto)
+  const deveMostrarVoltar = true
   
   // Estados para modo de edição
   const [editandoEntidade, setEditandoEntidade] = useState(false)
@@ -198,11 +188,11 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     }
   }, [entidade, resolvedParams.id, loading, api])
 
-  // Carregar página anterior do sessionStorage
+  // Carregar página anterior do sessionStorage (home, busca, produto, etc.)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const returnUrl = sessionStorage.getItem('lojaReturnUrl')
-      if (returnUrl && returnUrl.startsWith('/produto/')) {
+      if (returnUrl && (returnUrl === '/' || returnUrl.startsWith('/produto/') || returnUrl.startsWith('/produtos'))) {
         setPaginaAnterior(returnUrl)
       }
     }
@@ -521,29 +511,12 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
       {/* Lista de Produtos */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Botão Voltar - Se veio do mapa/home, de uma página de produto ou admin */}
+        {/* Botão Voltar - sempre visível para retornar à origem */}
         {deveMostrarVoltar && (
           <div className="mb-6">
             <div className="flex items-center gap-2">
-              {/* Botão voltar padrão (do NavigationContext) - aparece quando veio do mapa/home */}
-              {veioDoMapaOuHome && !paginaAnterior && !isAdminMode && (
-                <BackButton />
-              )}
-              {/* Botão voltar para produto - aparece quando veio de uma página de produto */}
-              {paginaAnterior && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    router.push(paginaAnterior)
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Voltar para o Produto
-                </Button>
-              )}
-              {/* Botão voltar para admin - aparece quando está em modo admin */}
-              {isAdminMode && (
+              {/* Modo admin: voltar para planos */}
+              {isAdminMode ? (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -554,6 +527,32 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Voltar para Planos
+                </Button>
+              ) : paginaAnterior ? (
+                /* Página anterior conhecida: voltar para ela */
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => router.push(paginaAnterior)}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {paginaAnterior.startsWith('/produto/') ? 'Voltar para o Produto' : 'Voltar'}
+                </Button>
+              ) : (
+                /* Fallback: voltar no histórico ou para home (funciona ao vir da lista, mapa ou acesso direto) */
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && window.history.length > 1) {
+                      router.back()
+                    } else {
+                      router.push('/')
+                    }
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
                 </Button>
               )}
               {isAdminMode && (

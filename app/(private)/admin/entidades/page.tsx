@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
-import { Loader2, Plus, Search, Edit, Package, Building2, Filter, Save, X, BarChart3 } from 'lucide-react'
+import { Loader2, Plus, Search, Edit, Package, Building2, Filter, Save, X, BarChart3, Trash2 } from 'lucide-react'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useEntidadesAdmin } from '@/hooks/useEntidadesAdmin'
 import { useApiContext } from '@/contexts/ApiContext'
 import { useToast } from '@/hooks/use-toast'
@@ -74,7 +84,7 @@ export default function AdminEntidadesPage() {
   const router = useRouter()
   const api = useApiContext()
   const { toast } = useToast()
-  const { listarEntidades, entidades, paginacao, isLoading, atualizarPlanoEntidade } = useEntidadesAdmin()
+  const { listarEntidades, entidades, paginacao, isLoading, atualizarPlanoEntidade, excluirEntidade } = useEntidadesAdmin()
 
   const [nomeBusca, setNomeBusca] = useState('') // Estado separado para busca com debounce
   const [filtros, setFiltros] = useState({
@@ -95,6 +105,8 @@ export default function AdminEntidadesPage() {
   })
   const [salvandoPlano, setSalvandoPlano] = useState(false)
   const [entidadeParaAnalytics, setEntidadeParaAnalytics] = useState<Entidade | null>(null)
+  const [entidadeParaExcluir, setEntidadeParaExcluir] = useState<Entidade | null>(null)
+  const [excluindoEntidade, setExcluindoEntidade] = useState(false)
 
   // Função para normalizar o nome do plano para o tipo esperado pelo backend
   // IMPORTANTE: O backend aceita "PRO" como nome real no banco, mas normaliza para "BASICO" internamente
@@ -126,7 +138,7 @@ export default function AdminEntidadesPage() {
     if (!authLoading && !isAuthenticated) {
       router.push('/login')
     } else if (!authLoading && isAuthenticated && !isDonoSistema() && !isAdmin()) {
-      router.push('/dashboard')
+      router.push('/')
     }
   }, [authLoading, isAuthenticated, isDonoSistema, isAdmin, router])
 
@@ -202,7 +214,7 @@ export default function AdminEntidadesPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar />
 
       <div className="flex-1 flex flex-col lg:pl-64">
@@ -460,6 +472,15 @@ export default function AdminEntidadesPage() {
                                     Produtos
                                   </Button>
                                 </Link>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                                  onClick={() => setEntidadeParaExcluir(entidade)}
+                                  title="Excluir entidade"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -734,6 +755,65 @@ export default function AdminEntidadesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog
+        open={!!entidadeParaExcluir}
+        onOpenChange={(open) => !open && setEntidadeParaExcluir(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir entidade</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você deseja realmente excluir esta entidade?
+              {entidadeParaExcluir && (
+                <span className="block mt-2 font-medium text-foreground">
+                  &quot;{entidadeParaExcluir.nome}&quot;
+                </span>
+              )}
+              <span className="block mt-2">Essa ação não pode ser desfeita.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindoEntidade}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault()
+                if (!entidadeParaExcluir) return
+                setExcluindoEntidade(true)
+                try {
+                  const nomeEntidade = entidadeParaExcluir.nome
+                  await excluirEntidade(entidadeParaExcluir.id)
+                  setEntidadeParaExcluir(null)
+                  toast({
+                    title: 'Entidade excluída com sucesso',
+                    description: `"${nomeEntidade}" foi removida do sistema.`,
+                  })
+                } catch (error: any) {
+                  toast({
+                    title: 'Erro ao excluir entidade',
+                    description: error.message || 'Ocorreu um erro ao excluir a entidade.',
+                    variant: 'destructive',
+                  })
+                } finally {
+                  setExcluindoEntidade(false)
+                }
+              }}
+              disabled={excluindoEntidade}
+              className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+            >
+              {excluindoEntidade ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir entidade'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </div>
   )

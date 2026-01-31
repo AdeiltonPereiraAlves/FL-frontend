@@ -228,6 +228,8 @@ interface Props {
   highlightedEntityId?: string | null
   currentZoom?: number
   top3EntityIds?: string[] // IDs das TOP 3 entidades no modo BEST_PRICE
+  /** No desktop com lista à esquerda, o painel de produto fica na coluna da lista. Não mostrar painel sobre o mapa. */
+  showProductPanel?: boolean
 }
 
 const SOUSA_PB: [number, number] = [-6.759, -38.2316]
@@ -538,6 +540,7 @@ export default function MapaEntidadesClusterizado({
   onEntityHover,
   onEntityClick,
   highlightedEntityId,
+  showProductPanel = true,
 }: Props) {
   const { selectedProduct, cartOpen, openProduct, closeProduct, toggleCart } = useUIPanel()
   const [currentZoom, setCurrentZoom] = useState<number>(14)
@@ -638,13 +641,13 @@ export default function MapaEntidadesClusterizado({
       </MapContainer>
 
       {/* Painéis laterais - REGRA: Lista tem prioridade sobre produto */}
-      {/* Desktop: mostrar painéis aqui. Mobile: usar drawer lateral */}
+      {/* Desktop com lista à esquerda: não mostrar painel de produto aqui (fica na coluna da lista) */}
       <div className="hidden lg:block">
         {cartOpen ? (
           <CarrinhoPanel
             onClose={toggleCart}
           />
-        ) : selectedProduct ? (
+        ) : showProductPanel && selectedProduct ? (
           <ProdutoPanel
             produto={selectedProduct}
             carrinhoAberto={false}

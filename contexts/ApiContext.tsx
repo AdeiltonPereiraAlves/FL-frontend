@@ -66,15 +66,11 @@ export function ApiProvider({ children }: ApiProviderProps) {
         const fullUrl = `${baseURL}${url}`
         const method = axiosError.config?.method?.toUpperCase() || 'GET'
         
-        // Log mais limpo e informativo
-        console.error('Erro de conexão:', {
-          message: axiosError.message || 'Erro desconhecido',
-          code: axiosError.code || 'NO_CODE',
-          method,
-          url: fullUrl,
-          baseURL,
-          status: axiosError.response?.status || 'N/A',
-        })
+        // Log mais limpo (evita objeto vazio no console)
+        console.error(
+          `Erro de conexão: ${axiosError.message || 'Erro desconhecido'} (${axiosError.code || 'NO_CODE'})`,
+          `${method} ${fullUrl}`
+        )
         
         // Mensagem mais informativa baseada no código de erro
         if (axiosError.code === 'ECONNREFUSED') {

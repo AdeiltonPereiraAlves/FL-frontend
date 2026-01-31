@@ -1,6 +1,7 @@
 'use client'
 
 import { Header } from '@/components/Header'
+import { Footer } from '@/components/layout/Footer'
 import { ReactNode } from 'react'
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
@@ -16,14 +17,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* Footer fixo (se necessário no futuro) */}
-      {/* <footer className="mt-auto border-t">
-        <div className="container mx-auto px-4 py-6">
-          <p className="text-center text-muted-foreground text-sm">
-            © 2024 Feira Livre. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer> */}
+      {/* Rodapé global */}
+      <Footer />
     </div>
   )
 }

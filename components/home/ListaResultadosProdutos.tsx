@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { Store, MapPin, ShoppingCart, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCart } from '@/contexts/CartContext'
@@ -186,11 +187,22 @@ export function ListaResultadosProdutos({
                       )}
                     </div>
                     
-                    {/* Nome da Entidade */}
+                    {/* Nome da Entidade - link para página da loja */}
                     {produto.entidade && (
                       <div className="flex items-center gap-1 text-xs text-gray-600 mb-2">
                         <Store className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{produto.entidade.nome}</span>
+                        <Link
+                          href={`/loja/${produto.entidade.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (typeof window !== 'undefined') {
+                              sessionStorage.setItem('lojaReturnUrl', window.location.pathname || '/')
+                            }
+                          }}
+                          className="truncate hover:text-[#16A34A] hover:underline font-medium transition-colors"
+                        >
+                          {produto.entidade.nome}
+                        </Link>
                       </div>
                     )}
 

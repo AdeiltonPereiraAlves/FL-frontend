@@ -10,6 +10,9 @@ export function SubHeader() {
   const { isAuthenticated, logoutAndRedirect, isLoading } = useAuth()
   const { isLojista, isAdmin, isDonoSistema } = useRole()
 
+  // Não mostrar dashboard para cliente (apenas para admin, dono ou lojista)
+  const mostrarDashboard = isDonoSistema() || isAdmin() || isLojista()
+
   const getDashboardLink = () => {
     if (isDonoSistema() || isAdmin()) {
       return '/admin/dashboard'
@@ -17,7 +20,7 @@ export function SubHeader() {
     if (isLojista()) {
       return '/lojista/dashboard'
     }
-    return '/dashboard'
+    return '/'
   }
 
   const getDashboardLabel = () => {
@@ -47,13 +50,15 @@ export function SubHeader() {
           <nav className="flex items-center gap-4">
             {isAuthenticated && (
               <>
-                <Link
-                  href={getDashboardLink()}
-                  className="flex items-center gap-1 text-white hover:text-white/80 transition-colors"
-                >
-                  <LayoutDashboard className="h-3.5 w-3.5" />
-                  {getDashboardLabel()}
-                </Link>
+                {mostrarDashboard && (
+                  <Link
+                    href={getDashboardLink()}
+                    className="flex items-center gap-1 text-white hover:text-white/80 transition-colors"
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                    {getDashboardLabel()}
+                  </Link>
+                )}
                 {(isAdmin() || isDonoSistema()) && (
                   <Link
                     href="/admin"

@@ -27,7 +27,9 @@ export function Header() {
   const { isLojista, isAdmin, isDonoSistema } = useRole()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Determina qual dashboard mostrar baseado no role
+  // Determina qual dashboard mostrar baseado no role (não mostrar para cliente)
+  const mostrarDashboard = isDonoSistema() || isAdmin() || isLojista()
+
   const getDashboardLink = () => {
     if (isDonoSistema() || isAdmin()) {
       return '/admin/dashboard'
@@ -35,7 +37,7 @@ export function Header() {
     if (isLojista()) {
       return '/lojista/dashboard'
     }
-    return '/dashboard'
+    return '/'
   }
 
   const getDashboardLabel = () => {
@@ -114,11 +116,13 @@ export function Header() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link href={getDashboardLink()} className="flex items-center gap-2">
-                      {getDashboardLabel()}
-                    </Link>
-                  </DropdownMenuItem>
+                  {mostrarDashboard && (
+                    <DropdownMenuItem asChild>
+                      <Link href={getDashboardLink()} className="flex items-center gap-2">
+                        {getDashboardLabel()}
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   {(isAdmin() || isDonoSistema()) && (
                     <>
                       <DropdownMenuSeparator />
@@ -129,7 +133,9 @@ export function Header() {
                       </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuSeparator />
+                  {(mostrarDashboard || isAdmin() || isDonoSistema()) && (
+                    <DropdownMenuSeparator />
+                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/perfil" className="flex items-center gap-2">
                       Meu Perfil
@@ -177,13 +183,15 @@ export function Header() {
 
               {isAuthenticated ? (
                 <>
-                  <Link
-                    href={getDashboardLink()}
-                    className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {getDashboardLabel()}
-                  </Link>
+                  {mostrarDashboard && (
+                    <Link
+                      href={getDashboardLink()}
+                      className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-accent"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {getDashboardLabel()}
+                    </Link>
+                  )}
                   {(isAdmin() || isDonoSistema()) && (
                     <Link
                       href="/admin"

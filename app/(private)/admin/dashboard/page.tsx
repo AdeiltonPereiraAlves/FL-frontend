@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
     if (!isLoading && !isAuthenticated) {
       router.push('/login')
     } else if (!isLoading && isAuthenticated && !isDonoSistema() && !isAdmin()) {
-      router.push('/dashboard')
+      router.push('/')
     }
   }, [isLoading, isAuthenticated, isDonoSistema, isAdmin, router])
 

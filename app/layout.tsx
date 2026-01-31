@@ -24,21 +24,8 @@ export const metadata: Metadata = {
     'Descubra os melhores preços perto de voce e compre com facilidade. Conectamos voce aos melhores comerciantes da sua regiao.',
   generator: 'Feira Livre',
   icons: {
-    icon: [
-      {
-        url: '/logofeiralivre.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/logofeiralivre.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/logo/logofeiralivre.png',
+    apple: '/logo/logofeiralivre.png',
   },
 }
 

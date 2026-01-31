@@ -147,6 +147,23 @@ export function useEntidadesAdmin() {
     }
   }, [api])
 
+  const excluirEntidade = useCallback(async (entidadeId: string) => {
+    setError(null)
+    try {
+      await api.delete(`/admin/entidades/${entidadeId}`)
+      setEntidades((prev) => prev.filter((ent) => ent.id !== entidadeId))
+      if (paginacao) {
+        setPaginacao((prev) =>
+          prev ? { ...prev, total: Math.max(0, prev.total - 1) } : null
+        )
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir entidade'
+      setError(errorMessage)
+      throw err
+    }
+  }, [api, paginacao])
+
   const atualizarPlanoEntidade = useCallback(async (
     entidadeId: string,
     tipo: 'FREE' | 'BASICO' | 'PREMIUM' | 'PREMIUM_MAX',
@@ -188,6 +205,7 @@ export function useEntidadesAdmin() {
     buscarEntidadePorId,
     atualizarEntidade,
     alterarStatusEntidade,
+    excluirEntidade,
     atualizarPlanoEntidade,
   }
 }
