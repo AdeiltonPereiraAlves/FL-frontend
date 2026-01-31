@@ -4,39 +4,84 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.24 264);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.6 0.22 300);
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.95 0.01 264);
-  --muted-foreground: oklch(0.45 0.02 264);
-  --accent: oklch(0.65 0.2 300);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.88 0.02 264);
-  --input: oklch(0.92 0.01 264);
-  --ring: oklch(0.55 0.24 264);
-  --chart-1: oklch(0.55 0.24 264);
-  --chart-2: oklch(0.6 0.22 300);
-  --chart-3: oklch(0.55 0.22 25);
-  --chart-4: oklch(0.45 0.2 264);
-  --chart-5: oklch(0.7 0.18 300);
+  /* Paleta FeiraLivre: #16A34A (verde), branco, cinza, preto, vermelho */
+  --feiralivre-primary: #16A34A;
+  --feiralivre-primary-dark: #15803D;
+  --feiralivre-white: #FFFFFF;
+  --feiralivre-gray: #6B7280;
+  --feiralivre-gray-light: #F3F4F6;
+  --feiralivre-black: #000000;
+  --feiralivre-red: #EF4444;
+  
+  --background: var(--feiralivre-white);
+  --foreground: var(--feiralivre-black);
+  --card: var(--feiralivre-white);
+  --card-foreground: var(--feiralivre-black);
+  --popover: var(--feiralivre-white);
+  --popover-foreground: var(--feiralivre-black);
+  --primary: var(--feiralivre-primary);
+  --primary-foreground: var(--feiralivre-white);
+  --secondary: var(--feiralivre-gray-light);
+  --secondary-foreground: var(--feiralivre-black);
+  --muted: var(--feiralivre-gray-light);
+  --muted-foreground: var(--feiralivre-gray);
+  --accent: var(--feiralivre-primary-dark);
+  --accent-foreground: var(--feiralivre-white);
+  --destructive: var(--feiralivre-red);
+  --chart-1: 221 83% 53%;
+  --chart-2: 142 76% 36%;
+  --chart-3: 346 77% 50%;
+  --chart-4: 199 89% 48%;
+  --chart-5: 43 96% 56%;
+  --destructive-foreground: var(--feiralivre-white);
+  --border: #E5E7EB;
+  --input: var(--feiralivre-white);
+  --ring: var(--feiralivre-primary);
+  --chart-1: var(--feiralivre-primary);
+  --chart-2: var(--feiralivre-primary-dark);
+  --chart-3: var(--feiralivre-red);
+  --chart-4: var(--feiralivre-gray);
+  --chart-5: var(--feiralivre-gray-light);
   --radius: 0.625rem;
-  --sidebar: oklch(0.98 0.01 264);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.55 0.24 264);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.02 300);
-  --sidebar-accent-foreground: oklch(0.2 0 0);
-  --sidebar-border: oklch(0.88 0.02 264);
-  --sidebar-ring: oklch(0.55 0.24 264);
+  --sidebar: var(--feiralivre-white);
+  --sidebar-foreground: var(--feiralivre-black);
+  --sidebar-primary: var(--feiralivre-primary);
+  --sidebar-primary-foreground: var(--feiralivre-white);
+  --sidebar-accent: var(--feiralivre-gray-light);
+  --sidebar-accent-foreground: var(--feiralivre-black);
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: var(--feiralivre-primary);
+}
+
+/* Animações para pins PREMIUM no mapa */
+@keyframes premiumPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #16A34A, 0 4px 12px rgba(22, 163, 74, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 4px #16A34A, 0 6px 16px rgba(22, 163, 74, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes premiumBadgePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+.premium-marker {
+  animation: premiumPulse 2s ease-in-out infinite;
+}
+
+.premium-badge {
+  animation: premiumBadgePulse 1.5s ease-in-out infinite;
 }
 
 .dark {
@@ -115,10 +160,97 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+.entity-marker {
+  position: relative;
+}
+
+.marker-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.marker-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 2px solid white;
+  background: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.marker-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.marker-highlight {
+  border-color: #22c55e;
+}
+
+.marker-price {
+  margin-top: 4px;
+  background: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.marker-link {
+  position: absolute;
+  top: 100%;
+  margin-top: 4px;
+  background: #15803D;
+  color: white;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 0.2s ease;
+}
+
+.marker-wrapper:hover .marker-link {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Estilos para o botão hover nos marcadores do Leaflet */
+.entity-marker-wrapper {
+  position: relative;
+}
+
+.entity-marker-wrapper:hover .entity-marker-button {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.entity-marker-button {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* Garantir que o hover funcione mesmo dentro do Leaflet */
+.leaflet-container .entity-marker-wrapper:hover .entity-marker-button {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }

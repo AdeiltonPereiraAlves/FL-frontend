@@ -8,7 +8,7 @@ export interface FotoProduto {
 export interface Produto {
   id: string
   nome: string
-  preco: number
+  precoFinal: number
   estoque: number
   entidadeId: string
   fotos?: FotoProduto[]

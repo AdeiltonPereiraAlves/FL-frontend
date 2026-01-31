@@ -3,12 +3,20 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ApiProvider } from '@/contexts/ApiContext'
 import './globals.css'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { ProductProvider } from "@/contexts/ProductContext"
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 import 'leaflet/dist/leaflet.css'
+import { CartProvider } from "@/contexts/CartContext"
+import { Toaster } from "@/components/ui/toaster"
+import { NavigationProvider } from "@/contexts/NavigationContext"
+import { CacheProvider } from "@/contexts/CacheContext"
+import { UIPanelProvider } from "@/contexts/UIPanelContext"
+import { ViewModeProvider } from "@/contexts/ViewModeContext"
+import { CarrinhoGlobal } from "@/components/carrinho/CarrinhoGlobal"
 
 export const metadata: Metadata = {
   title: 'Feira Livre - Encontre os melhores produtos locais',
@@ -16,21 +24,8 @@ export const metadata: Metadata = {
     'Descubra os melhores preços perto de voce e compre com facilidade. Conectamos voce aos melhores comerciantes da sua regiao.',
   generator: 'Feira Livre',
   icons: {
-    icon: [
-      {
-        url: '/logofeiralivre.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/logofeiralivre.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/logo/logofeiralivre.png',
+    apple: '/logo/logofeiralivre.png',
   },
 }
 
@@ -52,14 +47,26 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className="font-sans antialiased">
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
-
           <Analytics />
-          <AuthProvider>
-            <ProductProvider>
-              {children}
-            </ProductProvider>
-          </AuthProvider>
-
+          <ApiProvider>
+            <AuthProvider>
+              <ProductProvider>
+                <CartProvider>
+                  <UIPanelProvider>
+                    <ViewModeProvider>
+                      <CacheProvider>
+                        <NavigationProvider>
+                          {children}
+                          <CarrinhoGlobal />
+                          <Toaster />
+                        </NavigationProvider>
+                      </CacheProvider>
+                    </ViewModeProvider>
+                  </UIPanelProvider>
+                </CartProvider>
+              </ProductProvider>
+            </AuthProvider>
+          </ApiProvider>
         </GoogleOAuthProvider>
       </body>
     </html>
