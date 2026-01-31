@@ -10,9 +10,16 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-    
-    domains: ['https://console.neon.tech', 'cdn.meusite.com'],
-  
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+    ],
+  },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
 }
 

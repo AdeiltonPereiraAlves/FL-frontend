@@ -8,6 +8,7 @@ import { ListaResultadosProdutos } from './ListaResultadosProdutos'
 import { PainelDetalheProduto } from './PainelDetalheProduto'
 import { ViewModeToggle } from './ViewModeToggle'
 import { useUserLocation } from '@/hooks/useUserLocation'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 interface DrawerLateralProps {
   entidades?: any[]
@@ -23,6 +24,12 @@ interface DrawerLateralProps {
   produtoSelecionado?: any
   onProdutoClick?: (produto: any) => void
   onFecharDetalhe?: () => void
+  /** Só abre a lista automaticamente quando true (evita quebrar layout com mapa carregando) */
+  mapaCarregado?: boolean
+  /** Exibe loading enquanto carrega dados (entidades ou busca) */
+  isLoading?: boolean
+  /** Texto exibido durante o loading */
+  loadingText?: string
 }
 
 export function DrawerLateral({
@@ -39,10 +46,33 @@ export function DrawerLateral({
   produtoSelecionado,
   onProdutoClick,
   onFecharDetalhe,
+  mapaCarregado = false,
+  isLoading = false,
+  loadingText = 'Carregando...',
 }: DrawerLateralProps) {
   const [isOpen, setIsOpen] = useState(false)
   const userLocationRaw = useUserLocation()
   const userLocation = userLocationRaw ? { lat: userLocationRaw[0], lng: userLocationRaw[1] } : undefined
+
+  // No mobile: abrir lista automaticamente ao pesquisar ou ao clicar em produto no mapa
+  // Só quando o mapa já carregou para evitar quebrar o layout
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+    if (isMobile && mapaCarregado && (homeModo === 'resultadoBusca' || produtoSelecionado)) {
+      setIsOpen(true)
+    }
+  }, [homeModo, produtoSelecionado, mapaCarregado])
+
+  // Escutar evento para abrir lista (busca rápida, barra de busca) - só quando mapa carregou
+  useEffect(() => {
+    const handleAbrirLista = () => {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024 && mapaCarregado) {
+        setIsOpen(true)
+      }
+    }
+    window.addEventListener('feiralivre:abrirListaMobile', handleAbrirLista)
+    return () => window.removeEventListener('feiralivre:abrirListaMobile', handleAbrirLista)
+  }, [mapaCarregado])
 
   // Fechar drawer ao pressionar ESC
   useEffect(() => {
@@ -128,7 +158,11 @@ export function DrawerLateral({
           )}
           
           <div className="flex-1 min-h-0 overflow-hidden">
-            {homeModo === 'detalheProduto' && produtoSelecionado ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full min-h-[200px] bg-gray-50">
+                <LoadingSpinner size="lg" text={loadingText} />
+              </div>
+            ) : homeModo === 'detalheProduto' && produtoSelecionado ? (
               <PainelDetalheProduto
                 produto={produtoSelecionado}
                 onClose={() => {

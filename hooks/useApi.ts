@@ -16,6 +16,7 @@ interface UseApiState<T> {
 interface UseApiReturn<T> extends UseApiState<T> {
   execute: (config?: AxiosRequestConfig) => Promise<T | null>
   reset: () => void
+  setData: (data: T | null) => void
 }
 
 export function useApi<T = unknown>(
@@ -73,10 +74,20 @@ export function useApi<T = unknown>(
     })
   }, [])
 
+  const setData = useCallback((data: T | null) => {
+    setState((prev) => ({
+      ...prev,
+      data,
+      isLoading: false,
+      error: null,
+    }))
+  }, [])
+
   return {
     ...state,
     execute,
     reset,
+    setData,
   }
 }
 

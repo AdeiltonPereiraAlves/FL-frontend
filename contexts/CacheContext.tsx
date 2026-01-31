@@ -56,13 +56,10 @@ export function CacheProvider({ children }: { children: ReactNode }) {
 
     const now = Date.now()
     if (entry.expiresAt <= now) {
-      // Remover entrada expirada
-      setCache((prev) => {
-        const newCache = new Map(prev)
-        newCache.delete(key)
-        cacheRef.current = newCache
-        return newCache
-      })
+      const newCache = new Map(cacheRef.current)
+      newCache.delete(key)
+      cacheRef.current = newCache
+      setCache(newCache)
       return null
     }
 
@@ -70,39 +67,33 @@ export function CacheProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const set = useCallback(<T,>(key: string, data: T, ttl: number = CACHE_TTL): void => {
-    setCache((prev) => {
-      const newCache = new Map(prev)
-      
-      // Se o cache está cheio, remove a entrada mais antiga
-      if (newCache.size >= MAX_CACHE_SIZE && !newCache.has(key)) {
-        const oldestKey = Array.from(newCache.keys())[0]
-        newCache.delete(oldestKey)
-      }
+    const now = Date.now()
+    const entry: CacheEntry<T> = {
+      data,
+      timestamp: now,
+      expiresAt: now + ttl,
+    }
 
-      const now = Date.now()
-      newCache.set(key, {
-        data,
-        timestamp: now,
-        expiresAt: now + ttl,
-      })
-
-      cacheRef.current = newCache
-      return newCache
-    })
+    const prev = cacheRef.current
+    const newCache = new Map(prev)
+    if (newCache.size >= MAX_CACHE_SIZE && !newCache.has(key)) {
+      const oldestKey = Array.from(newCache.keys())[0]
+      newCache.delete(oldestKey)
+    }
+    newCache.set(key, entry)
+    cacheRef.current = newCache
+    setCache(newCache)
   }, [])
 
   const clear = useCallback((key?: string): void => {
     if (key) {
-      setCache((prev) => {
-        const newCache = new Map(prev)
-        newCache.delete(key)
-        cacheRef.current = newCache
-        return newCache
-      })
-    } else {
-      const newCache = new Map()
+      const newCache = new Map(cacheRef.current)
+      newCache.delete(key)
       cacheRef.current = newCache
       setCache(newCache)
+    } else {
+      cacheRef.current = new Map()
+      setCache(new Map())
     }
   }, [])
 
@@ -112,13 +103,10 @@ export function CacheProvider({ children }: { children: ReactNode }) {
 
     const now = Date.now()
     if (entry.expiresAt <= now) {
-      // Remover entrada expirada
-      setCache((prev) => {
-        const newCache = new Map(prev)
-        newCache.delete(key)
-        cacheRef.current = newCache
-        return newCache
-      })
+      const newCache = new Map(cacheRef.current)
+      newCache.delete(key)
+      cacheRef.current = newCache
+      setCache(newCache)
       return false
     }
 

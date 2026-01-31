@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search } from 'lucide-react'
 import { useApi } from '@/hooks/useApi'
+import { useCache } from '@/contexts/CacheContext'
 import { LoadingSkeleton } from '@/components/ui/LoadingSpinner'
 
 interface BuscaHeaderProps {
@@ -19,13 +20,21 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
   const [busca, setBusca] = useState(initialQuery || '')
   const [cidadeId, setCidadeId] = useState(initialCidadeId || '')
   const cidadesApi = useApi<any[]>('/cidades')
+  const cache = useCache()
   const cidadeIdRef = useRef(cidadeId)
 
   useEffect(() => {
+    const cacheKey = 'cidades:all'
+    const cachedCidades = cache.get<any[]>(cacheKey)
+    if (cachedCidades && Array.isArray(cachedCidades) && cachedCidades.length > 0) {
+      cidadesApi.setData(cachedCidades)
+      return
+    }
     cidadesApi.execute()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Definir cidade padrão
+  // Definir cidade padrão e sincronizar com a página (evento global)
   useEffect(() => {
     if (cidadesApi.data && cidadesApi.data.length > 0 && !cidadeId) {
       const sousa = cidadesApi.data.find((c: any) => 
@@ -34,20 +43,48 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
       if (sousa) {
         setCidadeId(sousa.id)
         cidadeIdRef.current = sousa.id
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('feiralivre:cidadeSelecionada', sousa.id)
+          window.dispatchEvent(new CustomEvent('feiralivre:cidadeAlterada', { detail: { cidadeId: sousa.id } }))
+        }
       }
     }
   }, [cidadesApi.data, cidadeId])
+
+  // Quando o usuário troca a cidade no select, notificar a página
+  const handleCidadeChange = (novoId: string) => {
+    setCidadeId(novoId)
+    cidadeIdRef.current = novoId
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('feiralivre:cidadeSelecionada', novoId)
+      window.dispatchEvent(new CustomEvent('feiralivre:cidadeAlterada', { detail: { cidadeId: novoId } }))
+    }
+  }
 
   // Sincronizar com props externas
   useEffect(() => {
     if (initialQuery !== undefined) {
       setBusca(initialQuery)
     }
-    if (initialCidadeId !== undefined) {
+    if (initialCidadeId !== undefined && initialCidadeId) {
       setCidadeId(initialCidadeId)
       cidadeIdRef.current = initialCidadeId
+      window.dispatchEvent(new CustomEvent('feiralivre:cidadeAlterada', { detail: { cidadeId: initialCidadeId } }))
     }
   }, [initialQuery, initialCidadeId])
+
+  // Escutar quando a página define cidade (ex: URL, restaurar estado)
+  useEffect(() => {
+    const handleCidadeAlterada = (e: Event) => {
+      const { cidadeId: novoId } = (e as CustomEvent).detail
+      if (novoId && novoId !== cidadeId) {
+        setCidadeId(novoId)
+        cidadeIdRef.current = novoId
+      }
+    }
+    window.addEventListener('feiralivre:cidadeAlterada', handleCidadeAlterada as EventListener)
+    return () => window.removeEventListener('feiralivre:cidadeAlterada', handleCidadeAlterada as EventListener)
+  }, [cidadeId])
 
   // Escutar evento para atualizar busca (vindo de buscas rápidas)
   useEffect(() => {
@@ -104,10 +141,7 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
               <select
                 className="h-10 rounded-md border border-gray-300 px-1.5 sm:px-3 text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A] focus:border-transparent w-[85px] sm:w-[120px] md:min-w-[140px] flex-shrink-0"
                 value={cidadeId}
-                onChange={(e) => {
-                  setCidadeId(e.target.value)
-                  cidadeIdRef.current = e.target.value
-                }}
+                onChange={(e) => handleCidadeChange(e.target.value)}
               >
                 <option value="">Cidade</option>
                 {cidadesApi.data

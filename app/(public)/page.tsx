@@ -47,7 +47,12 @@ export default function HomePage() {
   const { state: navState, navigateToLoja } = useNavigation()
   const router = useRouter()
 
-  const [cidadeId, setCidadeId] = useState('')
+  const [cidadeId, setCidadeId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('feiralivre:cidadeSelecionada') || ''
+    }
+    return ''
+  })
   const [busca, setBusca] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [erroCidade, setErroCidade] = useState('')
@@ -403,6 +408,10 @@ export default function HomePage() {
       if (busca !== urlBusca || cidadeId !== urlCidadeId) {
         setBusca(urlBusca)
         setCidadeId(urlCidadeId)
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('feiralivre:cidadeSelecionada', urlCidadeId)
+          window.dispatchEvent(new CustomEvent('feiralivre:cidadeAlterada', { detail: { cidadeId: urlCidadeId } }))
+        }
         // Limpar produtos anteriores
         setProdutos([])
         setEntidadesDestaqueIds([])
@@ -426,20 +435,17 @@ export default function HomePage() {
   }, [searchParams])
 
   useEffect(() => {
-    // Verificar cache de cidades
     const cacheKey = 'cidades:all'
     const cachedCidades = cache.get<any[]>(cacheKey)
-    
-    if (cachedCidades) {
-      console.log('✅ [Cache] Cidades encontradas no cache')
-      // As cidades serão carregadas pelo useApi normalmente, mas podemos usar cache em outras partes
+
+    if (cachedCidades && Array.isArray(cachedCidades) && cachedCidades.length > 0) {
+      cidadesApi.setData(cachedCidades)
+      return
     }
-    
+
     cidadesApi.execute().then((data) => {
-      if (data) {
-        // Salvar cidades no cache (cache longo, pois cidades mudam raramente)
-        cache.set(cacheKey, data, 60 * 60 * 1000) // Cache de 1 hora para cidades
-        console.log('💾 [Cache] Cidades salvas no cache')
+      if (data && Array.isArray(data)) {
+        cache.set(cacheKey, data, 60 * 60 * 1000)
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -459,6 +465,10 @@ export default function HomePage() {
           window.dispatchEvent(new CustomEvent('feiralivre:atualizarBusca', {
             detail: { query }
           }))
+          // No mobile: abrir lista lateral para mostrar resultados
+          if (window.innerWidth < 1024) {
+            window.dispatchEvent(new CustomEvent('feiralivre:abrirListaMobile'))
+          }
         }
         buscarComParametros(query, cidadeId)
       }
@@ -513,7 +523,7 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cidadeId])
 
-  // Definir cidade padrão quando cidades carregarem (apenas se não houver cidade restaurada)
+  // Definir cidade padrão quando cidades carregarem e sincronizar com BuscaHeader
   useEffect(() => {
     if (cidadesApi.data && cidadesApi.data.length > 0 && !cidadeInicializada) {
       // Remover cidades duplicadas
@@ -529,12 +539,28 @@ export default function HomePage() {
         const cidadePadrao = definirCidadePadrao(cidadesUnicas)
         if (cidadePadrao) {
           setCidadeId(cidadePadrao)
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('feiralivre:cidadeSelecionada', cidadePadrao)
+            window.dispatchEvent(new CustomEvent('feiralivre:cidadeAlterada', { detail: { cidadeId: cidadePadrao } }))
+          }
         }
       }
       setCidadeInicializada(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cidadesApi.data, cidadeInicializada])
+
+  // Escutar cidade alterada pelo BuscaHeader (quando usuário troca no select)
+  useEffect(() => {
+    const handleCidadeAlterada = (e: Event) => {
+      const { cidadeId: novoId } = (e as CustomEvent).detail
+      if (novoId && typeof novoId === 'string') {
+        setCidadeId(novoId)
+      }
+    }
+    window.addEventListener('feiralivre:cidadeAlterada', handleCidadeAlterada as EventListener)
+    return () => window.removeEventListener('feiralivre:cidadeAlterada', handleCidadeAlterada as EventListener)
+  }, [])
 
   // Busca automática com debounce quando o usuário digita (desabilitada por enquanto para evitar loops)
   // useEffect(() => {
@@ -694,6 +720,10 @@ export default function HomePage() {
         window.dispatchEvent(new CustomEvent('feiralivre:atualizarBusca', {
           detail: { query }
         }))
+        // No mobile: abrir lista lateral para mostrar resultados
+        if (window.innerWidth < 1024) {
+          window.dispatchEvent(new CustomEvent('feiralivre:abrirListaMobile'))
+        }
       }
       // Executar a busca
       buscarComParametros(query, cidadeId)
@@ -705,6 +735,9 @@ export default function HomePage() {
   const handleBuscaSubmit = useCallback((e?: React.FormEvent) => {
     e?.preventDefault()
     if (cidadeId && busca.trim()) {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        window.dispatchEvent(new CustomEvent('feiralivre:abrirListaMobile'))
+      }
       buscarComParametros(busca, cidadeId)
     } else if (!cidadeId) {
       setErroCidade('Por favor, selecione uma cidade antes de buscar')
@@ -776,6 +809,19 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Erro ao carregar cidades - ajuda a diagnosticar */}
+      {cidadesApi.error && !cidadesApi.isLoading && (
+        <section className="py-4 px-4">
+          <div className="mx-auto max-w-7xl">
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
+              <p className="font-semibold">Não foi possível carregar as cidades</p>
+              <p className="mt-1">{cidadesApi.error.message}</p>
+              <p className="mt-2 text-amber-700">Verifique se o backend está rodando e se a URL está correta (NEXT_PUBLIC_API_URL)</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Loading inicial - quando está carregando cidades ou entidades */}
       {(cidadesApi.isLoading || (entidadesApi.isLoading && !busca.trim() && produtos.length === 0)) && (
         <section className="py-8">
@@ -801,7 +847,19 @@ export default function HomePage() {
                 )}
                 
                 <div className="flex-1 min-h-0">
-                  {cartOpen ? (
+                  {(homeModo === 'exploracao' && entidadesApi.isLoading) ||
+                  (homeModo === 'resultadoBusca' && isSearching) ? (
+                    <div className="flex items-center justify-center h-full min-h-[300px] bg-gray-50 rounded-lg border border-gray-200">
+                      <LoadingSpinner
+                        size="lg"
+                        text={
+                          homeModo === 'resultadoBusca' && isSearching
+                            ? 'Buscando produtos...'
+                            : 'Carregando lojas...'
+                        }
+                      />
+                    </div>
+                  ) : cartOpen ? (
                     // Lista tem prioridade - não renderizar nada aqui, lista é renderizada globalmente
                     homeModo === 'resultadoBusca' && produtos.length > 0 ? (
                       <ListaResultadosProdutos
@@ -973,6 +1031,20 @@ export default function HomePage() {
                     setHomeModo('exploracao')
                   }
                 }}
+                mapaCarregado={
+                  !entidadesApi.isLoading ||
+                  !!busca.trim() ||
+                  produtos.length > 0
+                }
+                isLoading={
+                  (homeModo === 'exploracao' && entidadesApi.isLoading) ||
+                  (homeModo === 'resultadoBusca' && isSearching)
+                }
+                loadingText={
+                  homeModo === 'resultadoBusca' && isSearching
+                    ? 'Buscando produtos...'
+                    : 'Carregando lojas...'
+                }
               />
             </div>
           </div>

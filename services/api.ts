@@ -1,9 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { sanitizeObject } from '@/utils/security'
 
+// Remove barra final para evitar URLs duplicadas (ex: https://api.com//cidades)
+const baseURL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '')
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-  timeout: 30000, // Aumentado para 30s para carregar produtos completos com muitas relações
+  baseURL,
+  timeout: 45000, // 45s (Render free tier pode demorar ~60s no cold start)
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
