@@ -426,20 +426,17 @@ export default function HomePage() {
   }, [searchParams])
 
   useEffect(() => {
-    // Verificar cache de cidades
     const cacheKey = 'cidades:all'
     const cachedCidades = cache.get<any[]>(cacheKey)
-    
-    if (cachedCidades) {
-      console.log('✅ [Cache] Cidades encontradas no cache')
-      // As cidades serão carregadas pelo useApi normalmente, mas podemos usar cache em outras partes
+
+    if (cachedCidades && Array.isArray(cachedCidades) && cachedCidades.length > 0) {
+      cidadesApi.setData(cachedCidades)
+      return
     }
-    
+
     cidadesApi.execute().then((data) => {
-      if (data) {
-        // Salvar cidades no cache (cache longo, pois cidades mudam raramente)
-        cache.set(cacheKey, data, 60 * 60 * 1000) // Cache de 1 hora para cidades
-        console.log('💾 [Cache] Cidades salvas no cache')
+      if (data && Array.isArray(data)) {
+        cache.set(cacheKey, data, 60 * 60 * 1000)
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search } from 'lucide-react'
 import { useApi } from '@/hooks/useApi'
+import { useCache } from '@/contexts/CacheContext'
 import { LoadingSkeleton } from '@/components/ui/LoadingSpinner'
 
 interface BuscaHeaderProps {
@@ -19,10 +20,18 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
   const [busca, setBusca] = useState(initialQuery || '')
   const [cidadeId, setCidadeId] = useState(initialCidadeId || '')
   const cidadesApi = useApi<any[]>('/cidades')
+  const cache = useCache()
   const cidadeIdRef = useRef(cidadeId)
 
   useEffect(() => {
+    const cacheKey = 'cidades:all'
+    const cachedCidades = cache.get<any[]>(cacheKey)
+    if (cachedCidades && Array.isArray(cachedCidades) && cachedCidades.length > 0) {
+      cidadesApi.setData(cachedCidades)
+      return
+    }
     cidadesApi.execute()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Definir cidade padrão
