@@ -69,7 +69,7 @@ export default function ProdutoCardLoja({ produto, loja }: Props) {
       </div>
 
       <Button className="mt-4" onClick={handleAdd}>
-        Adicionar ao carrinho
+        Adicionar à lista
       </Button>
     </div>
   )

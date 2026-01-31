@@ -19,7 +19,7 @@ export default function CartButton({ onClick, isOpen = false }: Props) {
           ? 'bg-red-500 hover:bg-red-600' 
           : 'bg-[#16A34A] hover:bg-[#15803D]'
       } text-white p-4 rounded-full shadow-xl flex items-center gap-2 transition-colors`}
-      title={isOpen ? 'Fechar carrinho' : 'Abrir carrinho'}
+      title={isOpen ? 'Fechar lista' : 'Abrir lista'}
     >
       <ShoppingCart size={20} />
       {carrinho.length > 0 && (

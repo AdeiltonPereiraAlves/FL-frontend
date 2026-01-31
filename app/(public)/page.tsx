@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { PackageX, Search } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useApi } from '@/hooks/useApi'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
@@ -14,10 +14,16 @@ import { useRouter } from 'next/navigation'
 import { BotoesRapidos } from '@/components/home/BotoesRapidos'
 import { ListaEntidadesProdutosLateral } from '@/components/home/ListaEntidadesProdutosLateral'
 import { DrawerLateral } from '@/components/home/DrawerLateral'
+import { ListaResultadosProdutos } from '@/components/home/ListaResultadosProdutos'
+import { PainelDetalheProduto } from '@/components/home/PainelDetalheProduto'
+import { ViewModeToggle } from '@/components/home/ViewModeToggle'
 import { Input } from '@/components/ui/input'
 import { buscarInteligente, agruparPorEntidade } from '@/utils/searchInteligente'
 import { useCache } from '@/contexts/CacheContext'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useUIPanel } from '@/contexts/UIPanelContext'
+import { useViewMode } from '@/contexts/ViewModeContext'
+import { useUserLocation } from '@/hooks/useUserLocation'
 
 const Map = dynamic(() => import('@/components/mapa/MapaEntidadesClusterizado'), {
   ssr: false,
@@ -55,6 +61,73 @@ export default function HomePage() {
   const [highlightedEntityId, setHighlightedEntityId] = useState<string | null>(null)
   const [resultadosBuscaInteligente, setResultadosBuscaInteligente] = useState<any[]>([])
   const [carregandoEntidades, setCarregandoEntidades] = useState(false)
+  
+  // Estados para controle de modo da home
+  type HomeModo = 'exploracao' | 'resultadoBusca' | 'detalheProduto'
+  const [homeModo, setHomeModo] = useState<HomeModo>('exploracao')
+  const { selectedProduct, cartOpen, openProduct, closeProduct } = useUIPanel()
+  const { viewMode } = useViewMode()
+  const userLocationRaw = useUserLocation()
+  const userLocation = userLocationRaw ? { lat: userLocationRaw[0], lng: userLocationRaw[1] } : undefined
+  
+  // Sincronizar modo com estado de busca
+  useEffect(() => {
+    if (busca.trim() && produtos.length > 0) {
+      // Se há busca e produtos, modo resultadoBusca
+      if (homeModo === 'exploracao') {
+        setHomeModo('resultadoBusca')
+      }
+    } else if (!busca.trim()) {
+      // Se busca está vazia, SEMPRE voltar para exploração
+      if (homeModo !== 'exploracao') {
+        setHomeModo('exploracao')
+        closeProduct()
+      }
+      // Limpar produtos se ainda houver
+      if (produtos.length > 0) {
+        setProdutos([])
+        setEntidadesDestaqueIds([])
+        setBuscaRealizada(false)
+        setResultadosBuscaInteligente([])
+      }
+    }
+  }, [busca, produtos.length, homeModo, closeProduct])
+  
+  // Sincronizar homeModo com selectedProduct do contexto
+  useEffect(() => {
+    if (selectedProduct && homeModo !== 'detalheProduto') {
+      setHomeModo('detalheProduto')
+    } else if (!selectedProduct && homeModo === 'detalheProduto' && busca.trim() && produtos.length > 0) {
+      setHomeModo('resultadoBusca')
+    } else if (!selectedProduct && homeModo === 'detalheProduto' && !busca.trim()) {
+      setHomeModo('exploracao')
+    }
+  }, [selectedProduct, homeModo, busca, produtos.length])
+
+  // Calcular TOP 3 entidades quando em modo BEST_PRICE
+  // IMPORTANTE: useMemo sempre deve retornar um valor, nunca undefined
+  const top3EntityIds = useMemo(() => {
+    try {
+      if (viewMode === 'BEST_PRICE' && produtos.length > 0 && userLocation) {
+        const { ordenarPorBestPrice } = require('@/utils/bestPriceScore')
+        const produtosFormatados = produtos.map((p: any) => ({
+          produto: p,
+          entidade: p.entidade,
+          preco: p.precoAtual || p.precoFinal || 0,
+          temPromocao: p.emPromocao || false,
+        }))
+        const ordenados = ordenarPorBestPrice(produtosFormatados, userLocation)
+        return ordenados
+          .filter((p: any) => p.ranking && p.ranking <= 3)
+          .map((p: any) => p.entidade?.id)
+          .filter(Boolean) as string[]
+      }
+      return []
+    } catch (error) {
+      console.error('Erro ao calcular top3EntityIds:', error)
+      return []
+    }
+  }, [viewMode, produtos, userLocation])
 
   const cache = useCache()
   const debouncedBusca = useDebounce(busca, 500) // Debounce de 500ms para otimizar buscas
@@ -84,8 +157,29 @@ export default function HomePage() {
       return
     }
 
+    // Se busca estiver vazia, restaurar estado original
     if (!queryFinal.trim()) {
-      setErroCidade('Por favor, digite o nome do produto')
+      console.log('🧹 [HomePage] Busca vazia em buscarComParametros - restaurando estado')
+      setProdutos([])
+      setEntidadesDestaqueIds([])
+      setBuscaRealizada(false)
+      setResultadosBuscaInteligente([])
+      setErroCidade('')
+      setHomeModo('exploracao')
+      closeProduct()
+      
+      // Recarregar entidades se necessário
+      if (cidadeFinal && entidades.length === 0) {
+        entidadesApi.execute({
+          params: { cidadeId: cidadeFinal },
+        }).then((data) => {
+          if (data && Array.isArray(data)) {
+            setEntidades(data)
+          }
+        }).catch((error) => {
+          console.error('❌ [HomePage] Erro ao recarregar entidades:', error)
+        })
+      }
       return
     }
 
@@ -126,6 +220,10 @@ export default function HomePage() {
       const entidadesComScore = agruparPorEntidade(resultados)
       const ids = Array.from(entidadesComScore.keys())
       setEntidadesDestaqueIds(ids)
+      
+      // Mudar para modo resultadoBusca
+      setHomeModo('resultadoBusca')
+      closeProduct() // Limpar produto selecionado ao fazer nova busca
       return
     }
 
@@ -178,13 +276,18 @@ export default function HomePage() {
       const entidadesComScore = agruparPorEntidade(resultados)
       const ids = Array.from(entidadesComScore.keys())
       setEntidadesDestaqueIds(ids)
+      
+      // Mudar para modo resultadoBusca
+      setHomeModo('resultadoBusca')
+      closeProduct() // Limpar produto selecionado ao fazer nova busca
 
       // Salvar no cache para próximas buscas
       try {
-        cache.set(cacheKey, data, 5 * 60 * 1000) // Cache de 5 minutos
-        console.log('💾 [Cache] Busca salva no cache:', cacheKey)
+        // Salvar os produtos brutos (antes do processamento inteligente) no cache
+        cache.set(cacheKey, produtosList, 5 * 60 * 1000) // Cache de 5 minutos
+        console.log('💾 [Cache] Busca salva no cache:', cacheKey, `(${produtosList.length} produtos)`)
       } catch (err) {
-        console.error('Erro ao salvar no cache:', err)
+        console.error('❌ [Cache] Erro ao salvar busca no cache:', err)
       }
 
       // Salvar busca no localStorage e sessionStorage para restaurar depois
@@ -266,6 +369,9 @@ export default function HomePage() {
               hasPromocao: p.emPromocao || false,
               preco: p.precoFinal || p.precoAtual,
             })))
+            // Restaurar modo resultadoBusca
+            setHomeModo('resultadoBusca')
+            closeProduct()
           } else {
             // Se não houver produtos salvos, executar busca novamente
             buscarComParametros(state.busca, state.cidadeId)
@@ -348,6 +454,12 @@ export default function HomePage() {
         sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
         setBusca(query)
         setCidadeId(cidadeId)
+        // Disparar evento para atualizar o input no BuscaHeader
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('feiralivre:atualizarBusca', {
+            detail: { query }
+          }))
+        }
         buscarComParametros(query, cidadeId)
       }
     }
@@ -359,11 +471,23 @@ export default function HomePage() {
       setProdutos([])
       setEntidadesDestaqueIds([])
       setBuscaRealizada(false)
+      setResultadosBuscaInteligente([])
       setErroCidade('')
+      
+      // Voltar para modo exploração
+      setHomeModo('exploracao')
+      closeProduct()
       
       // Limpar estado salvo da loja também
       sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
       localStorage.removeItem(SEARCH_STORAGE_KEY)
+      
+      // Disparar evento para limpar o input no BuscaHeader
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('feiralivre:atualizarBusca', {
+          detail: { query: '' }
+        }))
+      }
       
       // Recarregar entidades se houver cidade selecionada
       if (cidadeId) {
@@ -482,33 +606,58 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cidadeId, busca, produtos.length])
 
-  // Limpar produtos quando não houver busca ativa (mas não se estiver restaurando do checkout)
+  // Limpar produtos e restaurar estado quando busca estiver vazia
   useEffect(() => {
     // Se está restaurando do checkout, não limpa produtos
     if (typeof window !== 'undefined' && sessionStorage.getItem(CHECKOUT_RETURN_STORAGE_KEY)) {
       return
     }
     
-    // Se a busca foi limpa (estava preenchida e agora está vazia)
-    if (!busca.trim() && produtos.length > 0) {
-      console.log('🧹 [HomePage] Limpando busca - removendo produtos e voltando para entidades')
-      setProdutos([])
-      setEntidadesDestaqueIds([])
-      setBuscaRealizada(false)
-      setErroCidade('')
-      
-      // Recarregar entidades se houver cidade selecionada
-      if (cidadeId) {
-        console.log('🔄 [HomePage] Recarregando entidades após limpar busca')
-        entidadesApi.execute({
-          params: { cidadeId },
-        }).then((data) => {
-          if (data && Array.isArray(data)) {
-            setEntidades(data)
+    // Se a busca foi limpa (está vazia), restaurar estado original IMEDIATAMENTE
+    if (!busca.trim()) {
+      // Se havia produtos ou busca realizada, limpar tudo
+      if (produtos.length > 0 || buscaRealizada || resultadosBuscaInteligente.length > 0) {
+        console.log('🧹 [HomePage] Busca vazia - restaurando estado original')
+        setProdutos([])
+        setEntidadesDestaqueIds([])
+        setBuscaRealizada(false)
+        setResultadosBuscaInteligente([])
+        setErroCidade('')
+        
+        // Limpar cache de buscas relacionadas a esta cidade (opcional, para forçar refresh)
+        // Não limpar tudo, apenas buscas da cidade atual se necessário
+        if (cidadeId) {
+          // Limpar apenas buscas antigas da cidade (manter cache de entidades)
+          // O cache de buscas será naturalmente expirado pelo TTL
+        }
+        
+        // Voltar para modo exploração
+        setHomeModo('exploracao')
+        closeProduct()
+        
+        // Recarregar entidades se houver cidade selecionada
+        // Não verificar se entidades.length === 0, pois pode ter sido filtrado
+        if (cidadeId && !entidadesApi.isLoading && !carregandoEntidades) {
+          console.log('🔄 [HomePage] Recarregando entidades após limpar busca')
+          // Verificar cache primeiro
+          const cacheKey = `entidades:${cidadeId}`
+          const cachedEntidades = cache.get<any[]>(cacheKey)
+          
+          if (cachedEntidades && Array.isArray(cachedEntidades) && cachedEntidades.length > 0) {
+            console.log('✅ [Cache] Usando entidades do cache após limpar busca')
+            setEntidades(cachedEntidades)
+          } else {
+            entidadesApi.execute({
+              params: { cidadeId },
+            }).then((data) => {
+              if (data && Array.isArray(data)) {
+                setEntidades(data)
+              }
+            }).catch((error) => {
+              console.error('❌ [HomePage] Erro ao recarregar entidades:', error)
+            })
           }
-        }).catch((error) => {
-          console.error('❌ [HomePage] Erro ao recarregar entidades:', error)
-        })
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -538,7 +687,15 @@ export default function HomePage() {
     if (cidadeId) {
       // Limpar estado anterior da loja ao fazer nova busca
       sessionStorage.removeItem(LOJA_RETURN_STORAGE_KEY)
+      // Atualizar o estado de busca para que apareça no input
       setBusca(query)
+      // Disparar evento para atualizar o input no BuscaHeader
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('feiralivre:atualizarBusca', {
+          detail: { query }
+        }))
+      }
+      // Executar a busca
       buscarComParametros(query, cidadeId)
     } else {
       setErroCidade('Por favor, selecione uma cidade antes de buscar')
@@ -552,9 +709,29 @@ export default function HomePage() {
     } else if (!cidadeId) {
       setErroCidade('Por favor, selecione uma cidade antes de buscar')
     } else if (!busca.trim()) {
-      setErroCidade('Por favor, digite o nome do produto')
+      // Se busca estiver vazia, restaurar estado original
+      console.log('🧹 [HomePage] Busca vazia no submit - restaurando estado')
+      setProdutos([])
+      setEntidadesDestaqueIds([])
+      setBuscaRealizada(false)
+      setResultadosBuscaInteligente([])
+      setHomeModo('exploracao')
+      closeProduct()
+      
+      // Recarregar entidades se necessário
+      if (cidadeId && entidades.length === 0) {
+        entidadesApi.execute({
+          params: { cidadeId },
+        }).then((data) => {
+          if (data && Array.isArray(data)) {
+            setEntidades(data)
+          }
+        }).catch((error) => {
+          console.error('❌ [HomePage] Erro ao recarregar entidades:', error)
+        })
+      }
     }
-  }, [cidadeId, busca, buscarComParametros])
+  }, [cidadeId, busca, buscarComParametros, entidades.length, entidadesApi, closeProduct])
 
   return (
     <>
@@ -563,11 +740,9 @@ export default function HomePage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              Encontre os melhores produtos
+              Encontre os melhores produtos pelo melhor preço!
             </h1>
-            <p className="text-sm sm:text-base text-gray-600">
-              Busque por produtos e encontre as melhores ofertas nas lojas próximas
-            </p>
+          
           </div>
 
           {/* Botões Rápidos */}
@@ -619,27 +794,90 @@ export default function HomePage() {
             {/* Layout Desktop: Lista (30%) + Mapa (70%) */}
             <div className="hidden lg:flex gap-6 h-[calc(100vh-300px)] min-h-[600px]">
               {/* Lista Lateral - 30% width */}
-              <div className="w-[30%] flex-shrink-0">
-                <ListaEntidadesProdutosLateral
-                  entidades={entidades}
-                  produtos={produtos}
-                  resultadosBusca={resultadosBuscaInteligente}
-                  busca={busca}
-                  cidadeId={cidadeId}
-                  highlightedEntityId={highlightedEntityId}
-                  onEntityHover={setHighlightedEntityId}
-                  onEntityClick={(id) => {
-                    setHighlightedEntityId(id)
-                    salvarEstadoBusca()
-                    if (typeof window !== 'undefined') {
-                      sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
-                      setTimeout(() => {
-                        navigateToLoja(id)
-                      }, 0)
-                    }
-                  }}
-                  onSalvarEstadoBusca={salvarEstadoBusca}
-                />
+              <div className="w-[30%] flex-shrink-0 flex flex-col">
+                {/* Toggle de modo de visualização */}
+                {homeModo === 'resultadoBusca' && produtos.length > 0 && (
+                  <ViewModeToggle hasSearch={true} />
+                )}
+                
+                <div className="flex-1 min-h-0">
+                  {cartOpen ? (
+                    // Lista tem prioridade - não renderizar nada aqui, lista é renderizada globalmente
+                    homeModo === 'resultadoBusca' && produtos.length > 0 ? (
+                      <ListaResultadosProdutos
+                        produtos={produtos}
+                        highlightedEntityId={highlightedEntityId}
+                        onEntityHover={setHighlightedEntityId}
+                        onProdutoClick={openProduct}
+                        userLocation={userLocation}
+                      />
+                    ) : (
+                    <ListaEntidadesProdutosLateral
+                      key="lista-entidades-cart-open"
+                      entidades={entidades}
+                      produtos={[]}
+                      resultadosBusca={[]}
+                      busca=""
+                      cidadeId={cidadeId}
+                      highlightedEntityId={highlightedEntityId}
+                      onEntityHover={setHighlightedEntityId}
+                      onEntityClick={(id) => {
+                        setHighlightedEntityId(id)
+                        salvarEstadoBusca()
+                        if (typeof window !== 'undefined') {
+                          sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
+                          setTimeout(() => {
+                            navigateToLoja(id)
+                          }, 0)
+                        }
+                      }}
+                      onSalvarEstadoBusca={salvarEstadoBusca}
+                    />
+                  )
+                ) : homeModo === 'detalheProduto' && selectedProduct ? (
+                  <PainelDetalheProduto
+                    produto={selectedProduct}
+                    onClose={() => {
+                      closeProduct()
+                      if (busca.trim() && produtos.length > 0) {
+                        setHomeModo('resultadoBusca')
+                      } else {
+                        setHomeModo('exploracao')
+                      }
+                    }}
+                  />
+                ) : homeModo === 'resultadoBusca' && produtos.length > 0 ? (
+                  <ListaResultadosProdutos
+                    produtos={produtos}
+                    highlightedEntityId={highlightedEntityId}
+                    onEntityHover={setHighlightedEntityId}
+                    onProdutoClick={openProduct}
+                    userLocation={userLocation}
+                  />
+                ) : (
+                  <ListaEntidadesProdutosLateral
+                    key="lista-entidades-default"
+                    entidades={entidades}
+                    produtos={[]}
+                    resultadosBusca={[]}
+                    busca=""
+                    cidadeId={cidadeId}
+                    highlightedEntityId={highlightedEntityId}
+                    onEntityHover={setHighlightedEntityId}
+                    onEntityClick={(id) => {
+                      setHighlightedEntityId(id)
+                      salvarEstadoBusca()
+                      if (typeof window !== 'undefined') {
+                        sessionStorage.setItem('lojaReturnUrl', window.location.pathname)
+                        setTimeout(() => {
+                          navigateToLoja(id)
+                        }, 0)
+                      }
+                    }}
+                    onSalvarEstadoBusca={salvarEstadoBusca}
+                  />
+                )}
+                </div>
               </div>
 
               {/* Mapa - 70% width */}
@@ -651,9 +889,10 @@ export default function HomePage() {
                 ) : (
                   <div className="h-full w-full rounded-lg overflow-hidden border border-gray-200">
                     <Map
-                      entidades={entidades}
-                      produtos={produtos}
-                      entidadesDestaqueIds={entidadesDestaqueIds}
+                      entidades={homeModo === 'resultadoBusca' && busca.trim() && produtos.length > 0 ? entidades.filter(e => entidadesDestaqueIds.includes(e.id)) : entidades}
+                      produtos={homeModo === 'resultadoBusca' && busca.trim() && produtos.length > 0 ? produtos : []}
+                      entidadesDestaqueIds={viewMode === 'BEST_PRICE' && top3EntityIds.length > 0 ? top3EntityIds : entidadesDestaqueIds}
+                      top3EntityIds={viewMode === 'BEST_PRICE' ? top3EntityIds : []}
                       isLoading={isSearching}
                       highlightedEntityId={highlightedEntityId}
                       onEntityHover={setHighlightedEntityId}
@@ -682,9 +921,10 @@ export default function HomePage() {
                   </div>
                 ) : (
                   <Map
-                    entidades={entidades}
-                    produtos={produtos}
-                    entidadesDestaqueIds={entidadesDestaqueIds}
+                    entidades={homeModo === 'resultadoBusca' && busca.trim() && produtos.length > 0 ? entidades.filter(e => entidadesDestaqueIds.includes(e.id)) : entidades}
+                    produtos={homeModo === 'resultadoBusca' && busca.trim() && produtos.length > 0 ? produtos : []}
+                    entidadesDestaqueIds={viewMode === 'BEST_PRICE' && top3EntityIds.length > 0 ? top3EntityIds : entidadesDestaqueIds}
+                    top3EntityIds={viewMode === 'BEST_PRICE' ? top3EntityIds : []}
                     isLoading={isSearching}
                     highlightedEntityId={highlightedEntityId}
                     onEntityHover={setHighlightedEntityId}
@@ -701,11 +941,11 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* Drawer Lateral Mobile */}
+              {/* Drawer Lateral Mobile - sempre usar drawer no mobile */}
               <DrawerLateral
-                entidades={entidades}
-                produtos={produtos}
-                resultadosBusca={resultadosBuscaInteligente}
+                entidades={homeModo === 'exploracao' ? entidades : []}
+                produtos={homeModo === 'resultadoBusca' ? produtos : []}
+                resultadosBusca={homeModo === 'resultadoBusca' ? resultadosBuscaInteligente : []}
                 busca={busca}
                 cidadeId={cidadeId}
                 highlightedEntityId={highlightedEntityId}
@@ -721,6 +961,17 @@ export default function HomePage() {
                   }
                 }}
                 onSalvarEstadoBusca={salvarEstadoBusca}
+                homeModo={homeModo}
+                produtoSelecionado={selectedProduct}
+                onProdutoClick={openProduct}
+                onFecharDetalhe={() => {
+                  closeProduct()
+                  if (busca.trim() && produtos.length > 0) {
+                    setHomeModo('resultadoBusca')
+                  } else {
+                    setHomeModo('exploracao')
+                  }
+                }}
               />
             </div>
           </div>

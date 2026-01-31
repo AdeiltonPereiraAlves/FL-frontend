@@ -1,10 +1,11 @@
 'use client'
 
-import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react'
+import { X, Plus, Minus, Trash2, ShoppingBag, FileDown } from 'lucide-react'
 import { useCart } from '@/contexts/CartContext'
 import { useNavigation } from '@/contexts/NavigationContext'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
+import { gerarPdfLista } from '@/utils/gerarPdfLista'
 
 interface Props {
   onClose: () => void
@@ -22,7 +23,7 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
       <div className="flex justify-between items-center p-4 border-b bg-[#16A34A] text-white">
         <div className="flex items-center gap-2">
           <ShoppingBag className="h-5 w-5" />
-          <h4 className="font-semibold text-lg">Carrinho</h4>
+          <h4 className="font-semibold text-lg">Lista</h4>
           {carrinho.length > 0 && (
             <span className="bg-white text-[#16A34A] px-2 py-0.5 rounded-full text-xs font-bold">
               {carrinho.length}
@@ -42,7 +43,7 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
         {carrinho.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
-            <p className="text-gray-500 font-medium">Carrinho vazio</p>
+            <p className="text-gray-500 font-medium">Lista vazia</p>
             <p className="text-sm text-gray-400 mt-2">
               Adicione produtos para começar
             </p>
@@ -137,7 +138,23 @@ export default function Carrinho({ onClose, onAbrirProduto }: Props) {
             }}
             className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold"
           >
-            Finalizar Compra
+            Finalizar Lista
+          </Button>
+
+          <Button
+            onClick={() => {
+              try {
+                gerarPdfLista(carrinho, total)
+              } catch (error) {
+                console.error('Erro ao gerar PDF:', error)
+                alert('Erro ao gerar PDF. Tente novamente.')
+              }
+            }}
+            variant="outline"
+            className="w-full border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A] hover:text-white font-semibold flex items-center justify-center gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            Salvar Lista em PDF
           </Button>
         </div>
       )}

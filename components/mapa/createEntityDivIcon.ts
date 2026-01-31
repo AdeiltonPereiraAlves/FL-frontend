@@ -1,4 +1,5 @@
 import L from 'leaflet'
+import { obterPlanoAtivo } from '@/utils/entidadePlano'
 
 interface CreateEntityDivIconProps {
   imageUrl: string
@@ -16,6 +17,7 @@ interface CreateEntityDivIconProps {
   pulsando?: boolean // Se o marcador deve pulsar (resultado de busca)
   mostrarNome?: boolean // Se deve mostrar o nome da entidade (baseado no zoom)
   zoomLevel?: number // Nível de zoom atual
+  entidade?: any // Entidade completa para verificar o plano
 }
 
 /**
@@ -87,6 +89,7 @@ export function createEntityDivIcon({
   pulsando = false,
   mostrarNome = false,
   zoomLevel = 14,
+  entidade,
 }: CreateEntityDivIconProps) {
   // Validação e sanitização
   const safeImageUrl = escapeHtml(imageUrl || 'https://via.placeholder.com/50')
@@ -94,13 +97,20 @@ export function createEntityDivIcon({
   const safeEntidadeId = isValidId(entidadeId) ? entidadeId : null
   const labelBotao = getLabelBotao(tipoEntidade)
   
+  // Verificar se a entidade é FREE
+  const planoAtivo = entidade ? obterPlanoAtivo(entidade) : null
+  const isFree = !planoAtivo || planoAtivo.nome === 'FREE'
+  
   // Formatação segura do preço
   const precoFormatado = preco !== undefined && preco !== null 
     ? preco.toFixed(2).replace('.', ',')
     : ''
 
   // Classes condicionais
-  const borderColor = highlight ? '#22c55e' : corBorda
+  // Se for FREE, usar borda cinza; se for pago, usar a cor definida ou verde padrão
+  const borderColor = isFree 
+    ? '#d1d5db' // Cinza para FREE
+    : (highlight ? '#22c55e' : (corBorda !== '#FFFFFF' ? corBorda : '#22c55e')) // Verde para pagos
   const borderWidth = highlight ? '4px' : temDestaque ? '3px' : '2px'
   const animationStyle = pulsando 
     ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' 
@@ -117,18 +127,22 @@ export function createEntityDivIcon({
          ${safeEntidadeId ? `data-entity-id="${safeEntidadeId}"` : ''}
          ${tipoEntidade ? `data-entity-type="${escapeHtml(tipoEntidade)}"` : ''}>
       
-      <!-- LOGO (só aparece se temLogo = true) -->
-      ${temLogo
+      <!-- ÍCONE: FREE mostra ícone de lista 🛒, pagos mostram logo -->
+      ${isFree
+        ? `<div style="width: 48px; height: 48px; border-radius: 9999px; border: ${borderWidth} solid ${borderColor}; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); background: white; display: flex; align-items: center; justify-content: center; transition: all 0.3s; ${animationStyle}">
+            <span style="font-size: 28px; line-height: 1;">🛒</span>
+          </div>`
+        : temLogo
         ? `<div class="${temDestaque ? 'premium-marker' : ''}" style="width: ${temDestaque ? '56px' : '48px'}; height: ${temDestaque ? '56px' : '48px'}; border-radius: 9999px; overflow: hidden; border: ${borderWidth} solid ${borderColor}; ${highlight ? `box-shadow: 0 0 0 2px ${borderColor}, 0 0 10px rgba(34, 197, 94, 0.5);` : temDestaque ? `box-shadow: 0 0 0 2px ${borderColor}, 0 4px 12px rgba(22, 163, 74, 0.4);` : `box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);`} ${animationStyle} background: white; transition: all 0.3s; position: relative;">
-          <img src="${safeImageUrl}" 
-               alt="${safeNomeEntidade || 'Entidade'}" 
-               style="width: 100%; height: 100%; object-fit: cover;"
-               loading="lazy" />
-          ${temDestaque ? '<div class="premium-badge" style="position: absolute; top: -2px; right: -2px; background: #16A34A; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); animation: premiumBadgePulse 1.5s ease-in-out infinite;">⭐</div>' : ''}
-        </div>`
+            <img src="${safeImageUrl}" 
+                 alt="${safeNomeEntidade || 'Entidade'}" 
+                 style="width: 100%; height: 100%; object-fit: cover;"
+                 loading="lazy" />
+            ${temDestaque ? '<div class="premium-badge" style="position: absolute; top: -2px; right: -2px; background: #16A34A; color: white; font-size: 10px; font-weight: bold; padding: 2px 4px; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); animation: premiumBadgePulse 1.5s ease-in-out infinite;">⭐</div>' : ''}
+          </div>`
         : `<div style="width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; border: ${borderWidth} solid ${borderColor}; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); background: #F3F4F6; display: flex; align-items: center; justify-content: center; transition: all 0.3s; ${animationStyle}">
-          <div style="width: 24px; height: 24px; background: ${corBorda === '#FFFFFF' ? '#9CA3AF' : corBorda}; border-radius: 50%;"></div>
-        </div>`
+            <div style="width: 24px; height: 24px; background: ${corBorda === '#FFFFFF' ? '#9CA3AF' : corBorda}; border-radius: 50%;"></div>
+          </div>`
       }
 
       <!-- NOME DA ENTIDADE (mostrar baseado no zoom) -->

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react'
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react'
 
 interface CacheEntry<T> {
   data: T
@@ -22,6 +22,12 @@ const CacheContext = createContext<CacheContextType | undefined>(undefined)
 
 export function CacheProvider({ children }: { children: ReactNode }) {
   const [cache, setCache] = useState<Map<string, CacheEntry<any>>>(new Map())
+  const cacheRef = useRef<Map<string, CacheEntry<any>>>(new Map())
+
+  // Sincronizar ref com state
+  useEffect(() => {
+    cacheRef.current = cache
+  }, [cache])
 
   // Limpar cache expirado periodicamente
   useEffect(() => {
@@ -36,6 +42,7 @@ export function CacheProvider({ children }: { children: ReactNode }) {
           }
         }
         
+        cacheRef.current = newCache
         return newCache
       })
     }, 60000) // Verifica a cada minuto
@@ -44,17 +51,23 @@ export function CacheProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const get = useCallback(<T,>(key: string): T | null => {
-    const entry = cache.get(key)
+    const entry = cacheRef.current.get(key)
     if (!entry) return null
 
     const now = Date.now()
     if (entry.expiresAt <= now) {
-      cache.delete(key)
+      // Remover entrada expirada
+      setCache((prev) => {
+        const newCache = new Map(prev)
+        newCache.delete(key)
+        cacheRef.current = newCache
+        return newCache
+      })
       return null
     }
 
     return entry.data as T
-  }, [cache])
+  }, [])
 
   const set = useCallback(<T,>(key: string, data: T, ttl: number = CACHE_TTL): void => {
     setCache((prev) => {
@@ -73,6 +86,7 @@ export function CacheProvider({ children }: { children: ReactNode }) {
         expiresAt: now + ttl,
       })
 
+      cacheRef.current = newCache
       return newCache
     })
   }, [])
@@ -82,25 +96,34 @@ export function CacheProvider({ children }: { children: ReactNode }) {
       setCache((prev) => {
         const newCache = new Map(prev)
         newCache.delete(key)
+        cacheRef.current = newCache
         return newCache
       })
     } else {
-      setCache(new Map())
+      const newCache = new Map()
+      cacheRef.current = newCache
+      setCache(newCache)
     }
   }, [])
 
   const has = useCallback((key: string): boolean => {
-    const entry = cache.get(key)
+    const entry = cacheRef.current.get(key)
     if (!entry) return false
 
     const now = Date.now()
     if (entry.expiresAt <= now) {
-      cache.delete(key)
+      // Remover entrada expirada
+      setCache((prev) => {
+        const newCache = new Map(prev)
+        newCache.delete(key)
+        cacheRef.current = newCache
+        return newCache
+      })
       return false
     }
 
     return true
-  }, [cache])
+  }, [])
 
   return (
     <CacheContext.Provider value={{ get, set, clear, has }}>

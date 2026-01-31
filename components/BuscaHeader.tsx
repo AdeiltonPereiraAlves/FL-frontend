@@ -49,6 +49,21 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
     }
   }, [initialQuery, initialCidadeId])
 
+  // Escutar evento para atualizar busca (vindo de buscas rápidas)
+  useEffect(() => {
+    const handleAtualizarBusca = (event: CustomEvent) => {
+      const { query } = event.detail
+      if (query !== undefined) {
+        setBusca(query)
+      }
+    }
+
+    window.addEventListener('feiralivre:atualizarBusca', handleAtualizarBusca as EventListener)
+    return () => {
+      window.removeEventListener('feiralivre:atualizarBusca', handleAtualizarBusca as EventListener)
+    }
+  }, [])
+
   useEffect(() => {
     cidadeIdRef.current = cidadeId
   }, [cidadeId])

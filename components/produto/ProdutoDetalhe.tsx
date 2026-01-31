@@ -362,7 +362,7 @@ export default function ProdutoDetalhes({ produto, onClose, onAbrirCarrinho }: P
           onClick={handleAdicionar}
           className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold h-12"
         >
-          Adicionar {quantidade > 1 ? `${quantidade} itens` : 'ao carrinho'}
+          Adicionar {quantidade > 1 ? `${quantidade} itens` : 'à lista'}
         </Button>
       </div>
     </div>

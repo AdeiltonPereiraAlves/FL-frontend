@@ -453,13 +453,13 @@ export default function LojaContent({ lojaId, initialData }: LojaContentProps) {
                         )}
                       </div>
 
-                      {/* Botão Adicionar ao Carrinho */}
+                      {/* Botão Adicionar à Lista */}
                       <Button
                         onClick={() => handleAdicionarAoCarrinho(produto)}
                         className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white"
                         size="sm"
                       >
-                        Adicionar ao Carrinho
+                        Adicionar à Lista
                       </Button>
                     </div>
                   </div>

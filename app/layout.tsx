@@ -14,6 +14,9 @@ import { CartProvider } from "@/contexts/CartContext"
 import { Toaster } from "@/components/ui/toaster"
 import { NavigationProvider } from "@/contexts/NavigationContext"
 import { CacheProvider } from "@/contexts/CacheContext"
+import { UIPanelProvider } from "@/contexts/UIPanelContext"
+import { ViewModeProvider } from "@/contexts/ViewModeContext"
+import { CarrinhoGlobal } from "@/components/carrinho/CarrinhoGlobal"
 
 export const metadata: Metadata = {
   title: 'Feira Livre - Encontre os melhores produtos locais',
@@ -62,12 +65,17 @@ export default function RootLayout({
             <AuthProvider>
               <ProductProvider>
                 <CartProvider>
-                  <CacheProvider>
-                    <NavigationProvider>
-                      {children}
-                      <Toaster />
-                    </NavigationProvider>
-                  </CacheProvider>
+                  <UIPanelProvider>
+                    <ViewModeProvider>
+                      <CacheProvider>
+                        <NavigationProvider>
+                          {children}
+                          <CarrinhoGlobal />
+                          <Toaster />
+                        </NavigationProvider>
+                      </CacheProvider>
+                    </ViewModeProvider>
+                  </UIPanelProvider>
                 </CartProvider>
               </ProductProvider>
             </AuthProvider>

@@ -20,6 +20,7 @@ import { EditarProdutoInline } from '@/components/admin/EditarProdutoInline'
 import { useNavigation } from '@/contexts/NavigationContext'
 import { BackButton } from '@/components/navigation/BackButton'
 import { useCache } from '@/contexts/CacheContext'
+import { useUIPanel } from '@/contexts/UIPanelContext'
 
 export default function LojaPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -44,8 +45,9 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const [paginacao, setPaginacao] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
   const [page, setPage] = useState(1)
-  const [carrinhoAberto, setCarrinhoAberto] = useState(false)
+  const { cartOpen, toggleCart } = useUIPanel()
   const [paginaAnterior, setPaginaAnterior] = useState<string | null>(null)
   
   // Verificar se deve mostrar botão voltar: se veio do mapa/home ou se tem página anterior no sessionStorage
@@ -68,24 +70,48 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const limit = 20
 
   useEffect(() => {
+    let isMounted = true
+    let errorTimeout: NodeJS.Timeout | null = null
+    
+    // Garantir que loading está true no início
+    setLoading(true)
+    setError(null)
+    setHasAttemptedLoad(false)
+    
     async function carregar() {
-      setLoading(true)
-      setError(null)
+      // Não mostrar erro durante o carregamento inicial
+      if (isMounted) {
+        setLoading(true)
+        setError(null)
+        setHasAttemptedLoad(false)
+      }
+      
       try {
         // Verificar cache primeiro
         const cacheKey = `loja:${resolvedParams.id}`
         const cached = cache.get<any>(cacheKey)
         if (cached) {
           console.log('✅ [LojaPage] Usando dados do cache')
-          setEntidade(cached)
-          setLoading(false)
-          await carregarProdutos(1)
+          if (isMounted) {
+            setEntidade(cached)
+            // Manter loading enquanto carrega produtos
+            await carregarProdutos(1)
+            setLoading(false)
+            setHasAttemptedLoad(true)
+          }
           return
         }
 
         // Carregar entidade
         console.log('🔍 [LojaPage] Buscando entidade do servidor')
         const entidadeData = await buscarEntidadePorId(resolvedParams.id)
+        
+        if (!isMounted) return
+        
+        if (!entidadeData) {
+          throw new Error('Entidade não encontrada')
+        }
+        
         setEntidade(entidadeData)
         
         // Salvar no cache (5 minutos)
@@ -94,16 +120,63 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
 
         // Carregar produtos da entidade
         await carregarProdutos(1)
+        if (isMounted) {
+          setLoading(false)
+          setHasAttemptedLoad(true)
+        }
       } catch (error) {
-        console.error('Erro ao carregar dados:', error)
+        if (!isMounted) return
+        
+        console.error('❌ [LojaPage] Erro ao carregar dados:', error)
         const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar dados da loja'
-        setError(errorMessage)
-      } finally {
-      setLoading(false)
+        
+        // Marcar que tentou carregar
+        setHasAttemptedLoad(true)
+        
+        // Aguardar um tempo significativo antes de mostrar erro
+        // Isso evita flash de erro durante navegação normal
+        errorTimeout = setTimeout(() => {
+          if (isMounted) {
+            // Verificar se ainda não tem entidade carregada antes de mostrar erro
+            setEntidade((prev) => {
+              if (!prev) {
+                setLoading(false)
+                setError(errorMessage)
+              } else {
+                // Se conseguiu carregar, apenas garantir que loading está false
+                setLoading(false)
+              }
+              return prev
+            })
+          }
+        }, 2500) // 2.5 segundos - tempo suficiente para carregar normalmente
+        
+        // Definir loading como false após um tempo menor para não ficar em loading infinito
+        // mas sem mostrar erro ainda
+        setTimeout(() => {
+          if (isMounted && !entidade) {
+            setLoading(false)
+            // Não definir erro aqui - deixar o timeout maior cuidar disso
+          }
+        }, 800)
       }
     }
 
-    carregar()
+    // Só carregar se tiver um ID válido
+    if (resolvedParams.id) {
+      carregar()
+    } else {
+      setLoading(false)
+      setError('ID da loja não fornecido')
+    }
+    
+    // Cleanup
+    return () => {
+      isMounted = false
+      if (errorTimeout) {
+        clearTimeout(errorTimeout)
+      }
+    }
   }, [resolvedParams.id, buscarEntidadePorId, cache])
 
   // Registrar visita à loja
@@ -202,22 +275,17 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
       },
     })
     // Abre o carrinho automaticamente após adicionar
-    setCarrinhoAberto(true)
+    openCart()
   }
 
-  const toggleCarrinho = () => {
-    setCarrinhoAberto((prev) => !prev)
-  }
-
-  const fecharCarrinho = () => {
-    setCarrinhoAberto(false)
-  }
+  // Funções de carrinho agora vêm do contexto UIPanel
 
   const whatsappUrl = entidade?.contato?.redes?.find(
     (r: any) => r.tipo === 'WHATSAPP'
   )?.url
 
-  if (loading) {
+  // Mostrar loading enquanto estiver carregando OU não tiver entidade ainda (e não tiver erro confirmado)
+  if (loading || (!entidade && !error)) {
     return (
       <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -242,8 +310,9 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
     )
   }
 
-  // Mostrar erro de conexão
-  if (error && !loading) {
+  // Mostrar erro de conexão - apenas se não estiver carregando, não tiver entidade E já tentou carregar
+  // Isso evita mostrar erro durante navegação inicial
+  if (error && !loading && !entidade && hasAttemptedLoad) {
     return (
       <div className="min-h-screen bg-background">
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
@@ -697,13 +766,13 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
                           )}
                         </div>
 
-                        {/* Botão Adicionar ao Carrinho */}
+                        {/* Botão Adicionar à Lista */}
                         <Button
                           onClick={() => handleAdicionarAoCarrinho(produto)}
                           className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white"
                           size="sm"
                         >
-                          Adicionar ao Carrinho
+                          Adicionar à Lista
                         </Button>
                       </div>
                     </div>
@@ -744,23 +813,9 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
         )}
       </div>
 
-      {/* Painel do Carrinho */}
-      {carrinhoAberto && (
-        <div
-          className="
-            fixed z-[999] bg-white shadow-xl
-            bottom-0 left-0 w-full h-[60%]
-            md:top-0 md:right-0 md:left-auto md:w-[360px] md:h-full
-            flex flex-col
-            animate-in slide-in-from-bottom md:slide-in-from-right
-          "
-        >
-          <Carrinho onClose={fecharCarrinho} />
-        </div>
-      )}
-
+      {/* Painel do Carrinho - agora renderizado globalmente via CarrinhoGlobal */}
       {/* Botão flutuante do carrinho */}
-      <CartButton onClick={toggleCarrinho} isOpen={carrinhoAberto} />
+      <CartButton onClick={toggleCart} isOpen={cartOpen} />
 
       {/* Modal de Edição de Produto - apenas para não-admin */}
       {!isAdminMode && produtoEditando && (

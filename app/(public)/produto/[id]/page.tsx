@@ -464,7 +464,7 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
             )}
 
 
-            {/* Quantidade e Adicionar ao Carrinho */}
+            {/* Quantidade e Adicionar à Lista */}
             <div className="border-t pt-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -494,7 +494,7 @@ export default function ProdutoPage({ params }: { params: Promise<{ id: string }
                 onClick={handleAdicionarAoCarrinho}
                 className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold h-12 text-lg"
               >
-                Adicionar {quantidade > 1 ? `${quantidade} itens` : 'ao carrinho'}
+                Adicionar {quantidade > 1 ? `${quantidade} itens` : 'à lista'}
               </Button>
             </div>
           </div>

@@ -12,6 +12,7 @@ import { X } from 'lucide-react'
 import { PopupProdutoMapa } from './PopupProdutoMapa'
 import { PopupEntidadeMapa } from './PopupEntidadeMapa'
 import { useCart } from '@/contexts/CartContext'
+import { useUIPanel } from '@/contexts/UIPanelContext'
 import { sanitizeId } from '@/utils/security'
 import { entidadeTemLogo, entidadeTemDestaque, obterZIndexPlano } from '@/utils/entidadePlano'
 import L from 'leaflet'
@@ -102,8 +103,7 @@ function ProdutoPanel({
       className={`
         fixed z-[998] bg-white shadow-xl
         bottom-0 left-0 w-full h-[60%]
-        md:top-0 md:h-full md:w-[360px]
-        ${carrinhoAberto ? 'md:right-[360px]' : 'md:right-0'}
+        md:top-0 md:h-full md:w-[360px] md:right-[360px]
         flex flex-col
         animate-in slide-in-from-bottom md:slide-in-from-right
       `}
@@ -134,7 +134,7 @@ function ProdutoPanel({
   )
 }
 
-// Componente para painel de carrinho com scroll inteligente
+// Componente para painel de lista com scroll inteligente
 function CarrinhoPanel({ onClose }: { onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -152,7 +152,7 @@ function CarrinhoPanel({ onClose }: { onClose: () => void }) {
 
       if (isInside) {
         // Se o mouse está dentro do painel, prevenir zoom do mapa
-        // O scroll dentro do carrinho será gerenciado pelo próprio componente Carrinho
+        // O scroll dentro da lista será gerenciado pelo próprio componente Carrinho
         const scrollContainer = panelRef.current.querySelector('.overflow-y-auto')
         if (scrollContainer) {
           const isAtTop = scrollContainer.scrollTop === 0
@@ -227,6 +227,7 @@ interface Props {
   onEntityClick?: (entityId: string) => void
   highlightedEntityId?: string | null
   currentZoom?: number
+  top3EntityIds?: string[] // IDs das TOP 3 entidades no modo BEST_PRICE
 }
 
 const SOUSA_PB: [number, number] = [-6.759, -38.2316]
@@ -236,6 +237,7 @@ function MapLayers({
   entidades,
   produtos,
   entidadesDestaqueIds = [],
+  top3EntityIds = [],
   onEntityHover,
   onEntityClick,
   highlightedEntityId,
@@ -354,6 +356,7 @@ function MapLayers({
     const temDestaque = entidadeTemDestaque(entidade)
     const zIndex = obterZIndexPlano(entidade)
     const isHighlighted = highlightedEntityId === entidadeId
+    const isTop3 = top3EntityIds.includes(entidadeId)
 
     // Ícone diferenciado por tipo
     let iconConfig: any = {
@@ -364,13 +367,21 @@ function MapLayers({
       temLogo,
       temDestaque,
       zIndex,
+      entidade, // Passar entidade completa para verificar o plano
     }
 
     // Se for produto, adicionar preço
     if (isProduto) {
       iconConfig.preco = item.precoFinal || item.precoAtual
-      iconConfig.highlight = isHighlighted
+      iconConfig.highlight = isHighlighted || isTop3 // Destacar se for TOP 3
       iconConfig.pulsando = true // Resultado de busca sempre pulsa
+    }
+    
+    // Destacar TOP 3 no modo BEST_PRICE
+    if (isTop3) {
+      iconConfig.highlight = true
+      iconConfig.corBorda = '#22c55e' // Verde para TOP 3
+      iconConfig.pulsando = true
     }
 
     // Cores diferenciadas por tipo
@@ -522,20 +533,24 @@ export default function MapaEntidadesClusterizado({
   entidades,
   produtos = [],
   entidadesDestaqueIds = [],
+  top3EntityIds = [],
   isLoading = false,
   onEntityHover,
   onEntityClick,
   highlightedEntityId,
 }: Props) {
-  const [carrinhoAberto, setCarrinhoAberto] = useState(false)
-  const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null)
+  const { selectedProduct, cartOpen, openProduct, closeProduct, toggleCart } = useUIPanel()
   const [currentZoom, setCurrentZoom] = useState<number>(14)
   const { adicionar } = useCart()
 
   const temBusca = produtos.length > 0
 
-  // Calcular centro do mapa
+  // Calcular centro do mapa - usar useRef para manter estabilidade
+  const centerRef = useRef<[number, number]>(SOUSA_PB)
+  
   const center = useMemo<[number, number]>(() => {
+    let newCenter: [number, number] = SOUSA_PB
+    
     if (temBusca && produtos.length > 0) {
       const primeiroProduto = produtos[0]
       const loc = primeiroProduto.entidade?.localizacao
@@ -543,12 +558,10 @@ export default function MapaEntidadesClusterizado({
         const lat = Number(loc.latitude)
         const lng = Number(loc.longitude)
         if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-          return [lat, lng]
+          newCenter = [lat, lng]
         }
       }
-    }
-
-    if (!temBusca && entidades.length > 0) {
+    } else if (!temBusca && entidades.length > 0) {
       const entidadesComLocalizacao = entidades.filter((e) => {
         if (e.status !== 'ATIVA') return false
         const loc = e.localizacao
@@ -564,12 +577,24 @@ export default function MapaEntidadesClusterizado({
         const centroLat = somaLat / entidadesComLocalizacao.length
         const centroLng = somaLng / entidadesComLocalizacao.length
         if (!isNaN(centroLat) && !isNaN(centroLng) && centroLat >= -90 && centroLat <= 90 && centroLng >= -180 && centroLng <= 180) {
-          return [centroLat, centroLng]
+          newCenter = [centroLat, centroLng]
         }
       }
     }
 
-    return SOUSA_PB
+    // Só atualizar se o centro mudou significativamente (mais de 0.001 graus)
+    const [lastLat, lastLng] = centerRef.current
+    const [newLat, newLng] = newCenter
+    const latDiff = Math.abs(lastLat - newLat)
+    const lngDiff = Math.abs(lastLng - newLng)
+    
+    if (latDiff >= 0.001 || lngDiff >= 0.001) {
+      centerRef.current = newCenter
+      return newCenter
+    }
+    
+    // Retornar o centro anterior se a mudança for insignificante
+    return centerRef.current
   }, [temBusca, produtos, entidades])
 
   return (
@@ -602,37 +627,35 @@ export default function MapaEntidadesClusterizado({
           entidades={entidades}
           produtos={produtos}
           entidadesDestaqueIds={entidadesDestaqueIds}
+          top3EntityIds={top3EntityIds}
           onEntityHover={onEntityHover}
           onEntityClick={onEntityClick}
           highlightedEntityId={highlightedEntityId}
           currentZoom={currentZoom}
-          produtoSelecionado={produtoSelecionado}
-          setProdutoSelecionado={setProdutoSelecionado}
+          produtoSelecionado={selectedProduct}
+          setProdutoSelecionado={openProduct}
         />
       </MapContainer>
 
-      {/* Painel de produto - mesmo layout do carrinho, posicionado ao lado quando ambos estão abertos */}
-      {produtoSelecionado && (
-        <ProdutoPanel
-          produto={produtoSelecionado}
-          carrinhoAberto={carrinhoAberto}
-          onClose={() => setProdutoSelecionado(null)}
-          onAbrirCarrinho={() => {
-            setCarrinhoAberto(true)
-            setProdutoSelecionado(null)
-          }}
-        />
-      )}
+      {/* Painéis laterais - REGRA: Lista tem prioridade sobre produto */}
+      {/* Desktop: mostrar painéis aqui. Mobile: usar drawer lateral */}
+      <div className="hidden lg:block">
+        {cartOpen ? (
+          <CarrinhoPanel
+            onClose={toggleCart}
+          />
+        ) : selectedProduct ? (
+          <ProdutoPanel
+            produto={selectedProduct}
+            carrinhoAberto={false}
+            onClose={closeProduct}
+            onAbrirCarrinho={toggleCart}
+          />
+        ) : null}
+      </div>
 
-      {/* Painel de carrinho */}
-      {carrinhoAberto && (
-        <CarrinhoPanel
-          onClose={() => setCarrinhoAberto(false)}
-        />
-      )}
-
-      {/* Botão flutuante de carrinho */}
-      <CartButton onClick={() => setCarrinhoAberto(!carrinhoAberto)} isOpen={carrinhoAberto} />
+      {/* Botão flutuante de lista */}
+      <CartButton onClick={toggleCart} isOpen={cartOpen} />
     </div>
   )
 }
