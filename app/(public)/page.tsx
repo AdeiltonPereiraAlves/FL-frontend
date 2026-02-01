@@ -809,14 +809,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Erro ao carregar cidades - ajuda a diagnosticar */}
+      {/* Erro ao carregar cidades */}
       {cidadesApi.error && !cidadesApi.isLoading && (
         <section className="py-4 px-4">
           <div className="mx-auto max-w-7xl">
             <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
               <p className="font-semibold">Não foi possível carregar as cidades</p>
-              <p className="mt-1">{cidadesApi.error.message}</p>
-              <p className="mt-2 text-amber-700">Verifique se o backend está rodando e se a URL está correta (NEXT_PUBLIC_API_URL)</p>
+              <p className="mt-1">Erro de conexão. Verifique sua internet e tente novamente.</p>
             </div>
           </div>
         </section>
