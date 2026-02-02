@@ -8,7 +8,6 @@ import { useApi } from '@/hooks/useApi'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { LoadingSpinner, LoadingSkeleton } from '@/components/ui/LoadingSpinner'
-import { DynamicContent } from '@/components/navigation/DynamicContent'
 import { useNavigation } from '@/contexts/NavigationContext'
 import { useRouter } from 'next/navigation'
 import { BotoesRapidos } from '@/components/home/BotoesRapidos'
@@ -44,7 +43,7 @@ interface SavedSearchState {
 export default function HomePage() {
   const { isAuthenticated } = useAuth()
   const searchParams = useSearchParams()
-  const { state: navState, navigateToLoja } = useNavigation()
+  const { navigateToLoja } = useNavigation()
   const router = useRouter()
 
   const [cidadeId, setCidadeId] = useState(() => {
@@ -688,11 +687,6 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, produtos.length, cidadeId])
-
-  // Se estiver visualizando uma loja, não mostrar conteúdo da home
-  if (navState.currentView === 'loja') {
-    return <DynamicContent />
-  }
 
   // Função para salvar estado da busca antes de navegar para loja
   const salvarEstadoBusca = useCallback(() => {
