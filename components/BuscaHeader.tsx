@@ -30,7 +30,11 @@ export function BuscaHeader({ onSearch, initialQuery, initialCidadeId }: BuscaHe
       cidadesApi.setData(cachedCidades)
       return
     }
-    cidadesApi.execute()
+    cidadesApi.execute().then((data) => {
+      if (data && Array.isArray(data)) {
+        cache.set(cacheKey, data, 60 * 60 * 1000)
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

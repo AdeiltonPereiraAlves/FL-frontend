@@ -44,7 +44,7 @@ export default function LojaPage({ params }: { params: Promise<{ id: string }> }
   const [error, setError] = useState<string | null>(null)
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
   const [page, setPage] = useState(1)
-  const { cartOpen, toggleCart } = useUIPanel()
+  const { cartOpen, toggleCart, openCart } = useUIPanel()
   const [paginaAnterior, setPaginaAnterior] = useState<string | null>(null)
   
   // Sempre mostrar botão voltar (para link da lista, mapa, produto, admin ou acesso direto)

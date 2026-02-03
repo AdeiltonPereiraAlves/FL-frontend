@@ -8,7 +8,6 @@ import { useApi } from '@/hooks/useApi'
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { LoadingSpinner, LoadingSkeleton } from '@/components/ui/LoadingSpinner'
-import { DynamicContent } from '@/components/navigation/DynamicContent'
 import { useNavigation } from '@/contexts/NavigationContext'
 import { useRouter } from 'next/navigation'
 import { BotoesRapidos } from '@/components/home/BotoesRapidos'
@@ -44,7 +43,7 @@ interface SavedSearchState {
 export default function HomePage() {
   const { isAuthenticated } = useAuth()
   const searchParams = useSearchParams()
-  const { state: navState, navigateToLoja } = useNavigation()
+  const { navigateToLoja } = useNavigation()
   const router = useRouter()
 
   const [cidadeId, setCidadeId] = useState(() => {
@@ -689,11 +688,6 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, produtos.length, cidadeId])
 
-  // Se estiver visualizando uma loja, não mostrar conteúdo da home
-  if (navState.currentView === 'loja') {
-    return <DynamicContent />
-  }
-
   // Função para salvar estado da busca antes de navegar para loja
   const salvarEstadoBusca = useCallback(() => {
     if (busca.trim() && cidadeId) {
@@ -809,14 +803,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Erro ao carregar cidades - ajuda a diagnosticar */}
+      {/* Erro ao carregar cidades */}
       {cidadesApi.error && !cidadesApi.isLoading && (
         <section className="py-4 px-4">
           <div className="mx-auto max-w-7xl">
             <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
               <p className="font-semibold">Não foi possível carregar as cidades</p>
-              <p className="mt-1">{cidadesApi.error.message}</p>
-              <p className="mt-2 text-amber-700">Verifique se o backend está rodando e se a URL está correta (NEXT_PUBLIC_API_URL)</p>
+              <p className="mt-1">Erro de conexão. Verifique sua internet e tente novamente.</p>
             </div>
           </div>
         </section>

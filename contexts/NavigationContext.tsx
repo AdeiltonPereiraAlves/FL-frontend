@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface NavigationState {
   currentView: 'home' | 'loja' | 'produto' | 'checkout' | 'produtos'
@@ -34,6 +34,7 @@ const NavigationContext = createContext<NavigationContextType | undefined>(undef
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [historyStack, setHistoryStack] = useState<NavigationHistoryItem[]>(() => {
     // Inicializar pilha baseado na URL atual
     if (typeof window !== 'undefined') {
@@ -82,6 +83,29 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       previousView: previous?.view || null,
     }
   })
+
+  // Sincronizar estado com a URL real (evita bug ao voltar da loja: URL / mas contexto ainda em 'loja')
+  useEffect(() => {
+    if (!pathname) return
+    if (pathname === '/') {
+      setState((prev) => (prev.currentView === 'home' ? prev : {
+        currentView: 'home',
+        lojaId: null,
+        produtoId: null,
+        previousView: null,
+      }))
+    } else if (pathname.startsWith('/loja/')) {
+      const lojaId = pathname.split('/loja/')[1]?.split('/')[0]
+      if (lojaId) {
+        setState((prev) => (prev.currentView === 'loja' && prev.lojaId === lojaId ? prev : {
+          currentView: 'loja',
+          lojaId,
+          produtoId: null,
+          previousView: 'home',
+        }))
+      }
+    }
+  }, [pathname])
 
   // Listener para botão voltar/avançar do navegador
   useEffect(() => {
